@@ -979,7 +979,7 @@ def add_entry(session, line):
     session.commit()
     print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
 
-def qa(session, url, category_id, date):
+def qa(session, url, category_id, date, description=None):
     'qa is short for quick_add'
     try:
         assert len(category_id) <=4, 'category_id out of order'
@@ -1002,7 +1002,8 @@ def qa(session, url, category_id, date):
                         url=new_article.source_url)
         print(new_pub)
     date = parse(date)
-    description='Not specified'
+    if description == None:
+        description='Not specified'
     authors = [get_or_create(session, Author, author_name=i) for i in new_article.authors]
     keywords = [get_or_create(session, Keyword, word=i) for i in new_article.keywords]
     new_entry= create_entry(article=new_article, description=description,
@@ -1012,7 +1013,7 @@ def qa(session, url, category_id, date):
     session.commit()
     print(f'{new_entry.name} added successfully')#.format(new_entry.name))
     
-def from_newspaper2(url):
+def from_newspaper(url):
     #include confirm option to make sure that the user wants to add the article
     new_article = make_article(url)
     print('\nTitle:')#, new_article.title)
