@@ -215,7 +215,7 @@ def add_category(session, category_name):
         new_category = Category.from_input(category_name=category_name, session=session)
         #new_category = Category(name=category_name)
         #print(new_category)
-    confirm_choice = btc.read_int_ranged('Add {0}? 1 to add, 2 to cancel'.format(new_category.name), 1, 2)
+    confirm_choice = btc.read_int_ranged(f'Add {new_category.name}? 1 to add, 2 to cancel', 1, 2)
     if confirm_choice == 1:
         session.add(new_category)
         session.commit()
@@ -292,11 +292,11 @@ def add_publication(session, keyword_text):
         return
     else:
         new_keyword = Publication(pub_name=keyword_text)
-    confirm_choice = btc.read_int_ranged('Add {0}? 1 to add, 2 to cancel'.format(new_keyword.pub_name), 1, 2)
+    confirm_choice = btc.read_int_ranged(f'Add {new_keyword.pub_name}? 1 to add, 2 to cancel', 1, 2)
     if confirm_choice == 1:
         session.add(new_keyword)
         session.commit()
-        print('{0} added to database'.format(new_keyword.word))
+        print(f'{new_keyword.word} added to database')#.format(new_keyword.word))
     elif confirm_choice == 2:
         print('Keyword add cancelled')
         return
@@ -317,7 +317,7 @@ def add_keyword_to_article(session, entry_id):##model=Keyword):
         new_keyword=btc.read_text('Enter new keyword: ')
         edit_choice = btc.read_int_ranged('Add new keyword to this article? (1 for yes, 2 for no)', 1, 2)
         if edit_choice == 1:
-            keyword_result = session.query(Keyword).filter(Keyword.word.like('%{0}%'.format(new_keyword))).all()
+            keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{new_keyword}%')).all()#.format(new_keyword))).all()
             if len(keyword_result) >= 1:
                 print('Keyword exists')
                 print(keyword_result)
@@ -355,8 +355,8 @@ def add_keyword_to_article(session, entry_id):##model=Keyword):
                 print('Keyword does not exist')
                 #new_keyword = btc.read_text('Enter new keyword: ')
                 kw = Keyword(word=new_keyword)
-                make_keyword_choice = btc.read_int_ranged('Create {0} as a new keyword for ? {1} (1 yes, 2 no)'.format(kw,
-                                                        entry_result.entry_name), 1, 2)
+                make_keyword_choice = btc.read_int_ranged(f'Create {kw} as a new keyword for ? {entry_result.entry_name} (1 yes, 2 no)',1, 2)#.format(kw,
+                                                        #entry_result.entry_name), 1, 2)
                 if make_keyword_choice == 1:
                     entry_result.keywords.append(kw)
                     session.commit()
@@ -381,7 +381,7 @@ def delete_entry_keyword(session, entry_id):
             activeItem = next(article_keywords)
             #print('Active item type:', type(activeItem))
             print('Enter 1 to delete keyword, 2 to continue, 3 to exit to main menu')
-            delete_choice = btc.read_int_ranged('Delete {0} from the keywords?'.format(activeItem),1, 3)
+            delete_choice = btc.read_int_ranged(f'Delete {activeItem} from the keywords?', 1, 3)#.format(activeItem),1, 3)
             if delete_choice == 1:
                 entry_result.keywords.remove(activeItem)
                 session.commit()
@@ -588,7 +588,7 @@ def search_by_id(search_type, item_id, session):
         if info_choice == 1:
             misc = it.cycle(result.items)
             while True:
-                print('Cycles through {0}'.format(item_types[search_type]))
+                print(f'Cycles through {item_types[search_type]}')#.format(item_types[search_type]))
                 continue_choice = btc.read_int_ranged('1 to view next, 2 to quit', 1, 2)
                 if continue_choice == 1:
                     print(next(misc))
@@ -672,7 +672,7 @@ def get_entries_by_category(session, line):
     if review_choice == True:
         entries_by_cat = it.cycle(result.entries)
         while True:
-            continue_choice = btc.read_bool(decision='View next article from {0}'.format(result),
+            continue_choice = btc.read_bool(decision=f'View next article from {result}',
                                     yes='y', no='n',
                                     yes_option='continue', no_option='cancel')
             if continue_choice == True:
@@ -973,8 +973,8 @@ def edit_entry(session, entry_id):
 #add_articles: this section is for adding entries, this is separate due to the complexity of the code. The entries
 #must be downloaded using the newspaper app.
 
-def add_entry(session, line):
-    new_entry = from_newspaper(url=line)
+def add_entry(session, url, category_id=None, date=None):
+    new_entry = from_newspaper_two(url=url, category_id=category_id, date=date)
     session.add(new_entry)
     session.commit()
     print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
@@ -1057,7 +1057,7 @@ def from_newspaper(url):
     date = create_date(new_article)
     description=get_description()
     confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
-    if confirm_choice == 1:
+    if confirm_choice == 2:
         print('Article add cancelled')
         return
     else:
@@ -1066,6 +1066,63 @@ def from_newspaper(url):
         return create_entry(article=new_article, description=description,
                             publication_id=publication_id, category_id=category_id,
                             date=date, authors=authors, keywords=keywords)
+    
+def from_newspaper_two(url, category_id = None, date=None):
+    #include confirm option to make sure that the user wants to add the article
+    new_article = make_article(url)
+    print('\nTitle:')#, new_article.title)
+    pprint.pprint(new_article.title)
+    print('Summary:')#, new_article.summary)
+    pprint.pprint(new_article.summary)
+    try:
+        new_pub = get(dal.session, Publication,
+                               url=new_article.source_url)
+        if new_pub != None:
+            print(new_pub)
+            pub_choice = btc.read_bool(decision=f'Confirm {new_pub} as article publication? ',
+                                       yes='y', no='n',
+                                       yes_option='confirm', no_option='cancel')
+            if pub_choice != True:
+                #if the user REJECTS the publication that is listed
+                new_title = input('Enter publication title: ')
+                new_source_url = input('Enter source URL: ')
+                new_pub = get_or_create(dal.session, Publication,
+                                title=new_title,
+                               url=new_source_url)
+        else:
+            #if we have a source URL but no title
+            new_title = input('Enter publication title: ')
+            new_pub = get_or_create(dal.session, Publication,
+                                title=new_title,
+                               url=new_article.source_url)
+    except Exception as e:
+        #if there's already a publication with that URL
+        new_title = input('Enter publication title: ')
+        new_source_url = input('Enter source URL: ')
+        new_pub = get_or_create(dal.session, Publication,
+                                title=new_title,
+                               url=new_source_url)
+    publication_id = new_pub.publication_id
+    print('-'*64)
+    if category_id == None:
+        display_categories()
+        category_id = int(input('Enter category ID: '))
+    #pub_title = input('Enter publication title: ')
+    if date == None:
+    date = create_date(new_article)
+    description=get_description()
+    confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
+    if confirm_choice == 2:
+        print('Article add cancelled')
+        return
+    else:
+        authors = [get_or_create(dal.session, Author, author_name=i) for i in new_article.authors]
+        keywords = [get_or_create(dal.session, Keyword, word=i) for i in new_article.keywords]
+        return create_entry(article=new_article, description=description,
+                            publication_id=publication_id, category_id=category_id,
+                            date=date, authors=authors, keywords=keywords)
+
+
 
 def create_entry(article, description, publication_id, category_id, date, authors=[],
                  keywords=[]):
@@ -1140,8 +1197,8 @@ def make_html_roundup(line, session):
     if filename == ".": return
     title=btc.read_text('Please enter title or "." to cancel: ')
     if title == ".": return
-    start_date = btc.read_date('Pease enter start date: ("MM/DD/YYYY"): ')
-    end_date = btc.read_date('Please enter end date: ("MM/DD/YYYY")')
+    start_date = btc.read_date('Pease enter start date ("MM/DD/YYYY"): ')
+    end_date = btc.read_date('Please enter end date ("MM/DD/YYYY"):')
     try:
         export_html2(session=session, program=filename, title=title,
                            start_date=start_date, end_date=end_date)
@@ -1153,11 +1210,11 @@ def export_html2(session, program, start_date, end_date, title):
     filename = program + '.html'
     f = open(filename, 'w')
 
-    opening_wrapper = """<html>
+    opening_wrapper = f"""<html>
     <head>
-    <title>{0}</title>
+    <title>{title}</title>
     </head>
-    <body><p>{0}</p>""".format(title)
+    <body><p>{title}</p>"""#.format(title)
     f.write(opening_wrapper)
     section_query = session.query(Section)
     section_query = section_query.all()
