@@ -75,3 +75,5 @@ def search_by_id_help():
 def search_exact_name_help():
     print('Enter the EXACT name of an Entry, Publication, Keyword, Section, or Author')
     print('e.g. search_exact_name publication The Guardian') 
+    
+##deprecated
