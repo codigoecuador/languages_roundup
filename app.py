@@ -193,16 +193,35 @@ def export_roundup(title, start_date, end_date, filename, min_category=1, max_ca
     except Exception as e:
         print(e)
 
-def create_docx_roundup(line):
+#def create_docx_roundup(line):
+#    line=''
+#    title = btc.read_text('Enter title or "." to return to main menu: ')
+#    if title == '.': return
+#    start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
+#    end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
+#    filename = btc.read_text('Enter filename or "." to return to main menu: ')
+    #call the export_roundup function to export a docx roundup
+#    export_roundup(title=title, start_date=start_date, end_date=end_date,
+                   #       filename=filename)
+
+def create_docx_roundup(args):
     line=''
-    title = btc.read_text('Enter title or "." to return to main menu: ')
-    if title == '.': return
-    start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
-    end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
-    filename = btc.read_text('Enter filename or "." to return to main menu: ')
+    if not args.title:
+        title = btc.read_text('Enter title or "." to return to main menu: ')
+        if title == '.': return
+    else:
+        title=' '.join(args.title)
+    if not args.date_range:
+        start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
+        end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
+    else:
+        start_date = parse(args.date_range[0]).date()
+        end_date = parse(args.date_range[1]).date()
+    if not args.filename:
+        filename = btc.read_text('Enter filename or "." to return to main menu: ')
     #call the export_roundup function to export a docx roundup
     export_roundup(title=title, start_date=start_date, end_date=end_date,
-                          filename=filename)
+                          filename=args.filename)
         
 #create section
 
@@ -556,7 +575,49 @@ def articles_needed(start_date, end_date, session):
     #for k, v in articles_needed:
         #print('{0}: {1} articles, {2} more articles needed'.format(k, v[0], v[1]))
     #print(total, 'articles total from {0} to {1}'.format(start_date, end_date))
-        
+    
+def find_entry(args, session):
+    if args.item_id and args.id_range:
+        raise Exception('Must be either id or id range')
+    elif args.date and args.date_range:
+        raise Exception('Must be either date or date range')
+    else:
+        query = session.query(Entry)
+        if args.category_id:
+            query = query.filter(Entry.category_id == args.category_id)
+        if args.id_range:
+            query = query.filter(Entry.entry_id >= args.id_range[0],
+                                    Entry.entry_id <= args.id_range[1])
+        if args.item_id:
+            query = query.filter(Entry.entry_id == args.item_id)
+        if args.date:
+            date = parse(args.date).date()
+            query = query.filter(Entry.date == date)
+        if args.date_range:
+            query = query.filter(Entry.date >= parse(args.date_range[0]).date(),
+                                    Entry.date <= parse(args.date_range[1]).date())
+        if args.url:
+            query = query.filter(Entry.url.like(f'%{args.url}%'))
+        if args.title:
+            query = query.filter(Entry.entry_name.like(f'%{args.title}%'))
+        result = query.all()
+        result_total = len(result)
+        if result_total == 0:
+            print('no entries found')
+            return
+        result_cycle = it.cycle(result)
+        print(f'{result_total} entries found')
+        info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
+        if info_choice == 1:
+            while True:
+                continue_choice = btc.read_int_ranged('1 to view next, 2 to quit', 1, 2)
+                print(next(result_cycle).name)
+                if continue_choice == 1:
+                    print(next(result_cycle))
+                elif continue_choice == 2:
+                    print('returning to main menu')
+                    break
+    
 def search_exact_name(line, session):
     search_types = {'entry': Entry, 'category': Category, 'publication': Publication,
                    'section': Section, 'keyword':Keyword}
@@ -820,6 +881,11 @@ Keywords: {active_item.keywords}''')
                 if edit_choice == 1:
                     #new_desc = get_description()
                     #desc_finalize(entry_id=active_item.id_value, session=session)
+                    summary_choice = btc.read_int_ranged('Type 1 to view summary, 2 to skip', 1, 2)
+                    if summary_choice == 1:
+                        print(f'Summary:\n{active_item.summary}')
+                    else:
+                        print('Summary display not needed')
                     new_desc = btc.read_text('Enter new description or "." to cancel: ')
                     print(new_desc)
                     if new_desc != '.': 
@@ -1109,7 +1175,7 @@ def from_newspaper_two(url, category_id = None, date=None):
         category_id = int(input('Enter category ID: '))
     #pub_title = input('Enter publication title: ')
     if date == None:
-    date = create_date(new_article)
+        date = create_date(new_article)
     description=get_description()
     confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
     if confirm_choice == 2:
