@@ -1,7 +1,6 @@
 import newspaper as np
 from dateutil.parser import parse
 from roundup_db1 import Entry, Category, Keyword, Publication, Author, Section, DataAccessLayer
-from sqlalchemy import func
 import app,roundup_help
 import sys, glob, datetime, os
 import BTCInput2 as btc
