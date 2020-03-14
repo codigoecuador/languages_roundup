@@ -577,7 +577,7 @@ def articles_needed(start_date, end_date, session):
     #print(total, 'articles total from {0} to {1}'.format(start_date, end_date))
     
 def find_entry(args, session):
-    if args.item_id and args.id_range:
+    if args.entry_id and args.id_range:
         raise Exception('Must be either id or id range')
     elif args.date and args.date_range:
         raise Exception('Must be either date or date range')
@@ -588,8 +588,8 @@ def find_entry(args, session):
         if args.id_range:
             query = query.filter(Entry.entry_id >= args.id_range[0],
                                     Entry.entry_id <= args.id_range[1])
-        if args.item_id:
-            query = query.filter(Entry.entry_id == args.item_id)
+        if args.entry_id:
+            query = query.filter(Entry.entry_id == args.entry_id)
         if args.date:
             date = parse(args.date).date()
             query = query.filter(Entry.date == date)
@@ -617,7 +617,37 @@ def find_entry(args, session):
                 elif continue_choice == 2:
                     print('returning to main menu')
                     break
-    
+
+def find_category(args, session):
+    query = session.query(Category)
+    if args.category_id:
+        query = query.filter(Category.category_id == args.category_id)
+    if args.category_name:
+        print(args.category_name)
+        category_name = ' '.join(args.category_name)
+        print(category_name)
+        query = query.filter(Category.name.like(f"%{category_name}%"))
+    if args.section_id:
+        query = query.filter(Category.section_id == args.section_id)
+    result = query.all()
+    result_total = len(result)
+    if result_total == 0:
+        print('no categories found')
+        return
+    result_cycle = it.cycle(result)
+    print(f'{result_total} categories found')
+    info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
+    if info_choice == 1:
+        while True:
+            continue_choice = btc.read_int_ranged('1 to view next, 2 to quit: ', 1, 2)
+            print(next(result_cycle).name)
+            if continue_choice == 1:
+                print(next(result_cycle))
+            elif continue_choice == 2:
+                print('returning to main menu')
+                break                    
+               
+                    
 def search_exact_name(line, session):
     search_types = {'entry': Entry, 'category': Category, 'publication': Publication,
                    'section': Section, 'keyword':Keyword}
