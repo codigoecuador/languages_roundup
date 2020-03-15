@@ -1,6 +1,10 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+#engine = create_engine('sqlite:///roundup_db3.db')
+
+#Session = sessionmaker(bind=engine)
+
 from datetime import datetime, date
 
 from sqlalchemy import Column, Integer, Numeric, String, Table, ForeignKey, Date, func
@@ -113,6 +117,10 @@ class Category(Base):
     entry_names = association_proxy('entries', 'entry_name')
     second_item = synonym('section_id')
     
+    #def __init__(self, name,section_id):
+      #  self.name = name
+      #  self.section_id=section_id
+    
     def __repr__(self):
         return "Category(id='{self.id_value}' name='{self.name}', section={self.section_id})".format(self=self)
     
@@ -171,8 +179,10 @@ class Entry(Base):
     description = Column(String(500))
     summary = Column(String(1500), default=None)
     date = Column(Date(), default=date.today())
+    #authors = Column(Integer(), ForeignKey('authors.author_id'))
     authors = relationship("Author", secondary=lambda: authorentries_table)
     author_names = association_proxy("authors", 'name')
+    #publication = Column(String(100))
     category_id = Column(Integer(), ForeignKey('categories.category_id'))
     category=relationship("Category", back_populates="entries")
     publication_id = Column(Integer(), ForeignKey('publications.publication_id'))
@@ -181,6 +191,10 @@ class Entry(Base):
     keyword_list = association_proxy('keywords', 'word')
     name=synonym('entry_name')
     
+#    categories = relationship("Category", secondary=lambda: entrycategories_table)
+    
+#    category_names = association_proxy('categories', 'name')
+
     def __init__(self, entry_name, entry_url, description, date,
                 publication_id, category_id, keywords, summary=None, authors=None):
         self.entry_name = entry_name
@@ -204,7 +218,7 @@ class Entry(Base):
         
     @property
     def get_date_formatted(self):
-        return f'{self.date.month}/{self.date.day}/{self.date.year}'
+        return '{0}/{1}/{2}'.format(self.date.month, self.date.day, self.date.year)
     
     @property
     def wrapped_html_string(self):
@@ -252,7 +266,12 @@ class Keyword(Base):
     def items(self):
         return self.entries
     
+    
+    
 #Keywords will have a many to many relationship with entries and stories
+#Base.metadata.create_all(engine)
+
+#session = Session()
 
 class DataAccessLayer:
     def __init__(self):

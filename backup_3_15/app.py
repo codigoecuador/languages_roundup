@@ -12,6 +12,7 @@ import warnings
 
 import docx
 from docx.enum.dml import MSO_THEME_COLOR_INDEX
+#from roundup_db2 import Entry
 
 class Roundup(object):
     '''NOTE: do not try to use the roundup class for anything except exporting roundups'''
@@ -120,20 +121,17 @@ class Roundup(object):
             
     def get_category_articles(self):
         current_category = 1
-        max_category = 30
+        max_category = 21
         article_categories = []
         while current_category <= max_category:
     #for category in range(min_category, max_category+1):
             cat = get(session=dal.session, model=Category, category_id=current_category)
         #new_cat = RoundupCategory()
             print(cat)
-            try:
-                article_categories.append(RoundupCategory(category_id=cat.category_id,
-                                                      name=cat.name,
-                                                      entries = [i for i in cat.entries if i.date >=self.start_date and i.date <=self.end_date],
-                                                         section_id=cat.section_id))
-            except AttributeError:
-                print('category not found')
+            article_categories.append(RoundupCategory(category_id=cat.category_id,
+                                                  name=cat.name,
+                                                  entries = [i for i in cat.entries if i.date >=self.start_date and i.date <=self.end_date],
+                                                     section_id=cat.section_id))
             current_category += 1
         return article_categories
         
@@ -156,6 +154,8 @@ class RoundupSection(object):
         self.section_id = section_id
         self.name = name
         self.categories=categories
+        #self.start_date = start_date
+        #self.end_date = end_date
 
     def __repr__(self):
         return f'Sec(section_id={self.section_id}, name={self.name})'#.format(self.section_id, self.name)
@@ -176,6 +176,8 @@ class RoundupCategory(object):
         self.category_id = category_id
         self.name = name
         self.entries = entries
+        #self.start_date = start_date
+        #self.end_date = end_date
         self.section_id = section_id
         
     def __repr__(self):
@@ -190,6 +192,17 @@ def export_roundup(title, start_date, end_date, filename, min_category=1, max_ca
         print('Export successful')
     except Exception as e:
         print(e)
+
+#def create_docx_roundup(line):
+#    line=''
+#    title = btc.read_text('Enter title or "." to return to main menu: ')
+#    if title == '.': return
+#    start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
+#    end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
+#    filename = btc.read_text('Enter filename or "." to return to main menu: ')
+    #call the export_roundup function to export a docx roundup
+#    export_roundup(title=title, start_date=start_date, end_date=end_date,
+                   #       filename=filename)
 
 def create_docx_roundup(args):
     line=''
@@ -207,8 +220,8 @@ def create_docx_roundup(args):
     if not args.filename:
         filename = btc.read_text('Enter filename or "." to return to main menu: ')
     #call the export_roundup function to export a docx roundup
-    export_roundup(title=title, start_date=parse(args.date_range[0]).date(),
-                   end_date=parse(args.date_range[1]).date(), filename=args.filename)
+    export_roundup(title=title, start_date=start_date, end_date=end_date,
+                          filename=args.filename)
         
 #create section
 
@@ -219,6 +232,8 @@ def add_category(session, category_name):
         return
     else:
         new_category = Category.from_input(category_name=category_name, session=session)
+        #new_category = Category(name=category_name)
+        #print(new_category)
     confirm_choice = btc.read_int_ranged(f'Add {new_category.name}? 1 to add, 2 to cancel', 1, 2)
     if confirm_choice == 1:
         session.add(new_category)
@@ -313,6 +328,8 @@ def add_keyword_to_article(session, entry_id):##model=Keyword):
     #new_keyword = btc.read_text('Enter new keyword: ')
     #make sure the keyword doesn't already exist
     entry_result = session.query(Entry).filter(Entry.entry_id==entry_id).scalar()
+    #entry_result = entry_result.filter(Entry.entry_id==entry_id)
+    #entry_result = entry_result.scalar()
     if entry_result != None:
         print('Entry found: ')
         print(entry_result)
@@ -355,8 +372,10 @@ def add_keyword_to_article(session, entry_id):##model=Keyword):
                         return
             elif len(keyword_result) ==0:
                 print('Keyword does not exist')
+                #new_keyword = btc.read_text('Enter new keyword: ')
                 kw = Keyword(word=new_keyword)
-                make_keyword_choice = btc.read_int_ranged(f'Create {kw} as a new keyword for ? {entry_result.entry_name} (1 yes, 2 no)',1, 2)
+                make_keyword_choice = btc.read_int_ranged(f'Create {kw} as a new keyword for ? {entry_result.entry_name} (1 yes, 2 no)',1, 2)#.format(kw,
+                                                        #entry_result.entry_name), 1, 2)
                 if make_keyword_choice == 1:
                     entry_result.keywords.append(kw)
                     session.commit()
@@ -379,11 +398,13 @@ def delete_entry_keyword(session, entry_id):
         while True:
             pprint.pprint(entry_result.keywords)
             activeItem = next(article_keywords)
+            #print('Active item type:', type(activeItem))
             print('Enter 1 to delete keyword, 2 to continue, 3 to exit to main menu')
-            delete_choice = btc.read_int_ranged(f'Delete {activeItem} from the keywords?', 1, 3)
+            delete_choice = btc.read_int_ranged(f'Delete {activeItem} from the keywords?', 1, 3)#.format(activeItem),1, 3)
             if delete_choice == 1:
                 entry_result.keywords.remove(activeItem)
                 session.commit()
+                #print(entry_result.keywords)
             elif delete_choice == 2:
                 continue
             elif delete_choice == 3:
@@ -450,6 +471,8 @@ def display_categories(section_id=None):
     print('Categories: ')
     cat_map = map(str, query)
     print('\n'.join(cat_map))
+    #for i in query:
+    #    print(i.category_id, i.name, end='  ')
 
 def display_sections():
     query = dal.session.query(Section).all()
@@ -595,30 +618,6 @@ def find_entry(args, session):
                     print('returning to main menu')
                     break
 
-def find_section(args, session):
-    query = session.query(Section)
-    if args.section_id:
-        query = query.filter(Section.section_id==args.section_id)
-    if args.name:
-        query = query.filter(Section.name.like(f'%{args.name}%'))
-    result = query.all()
-    result_total = len(result)
-    if result_total == 0:
-        print('no sections found')
-        return
-    result_cycle = it.cycle(result)
-    print(f'{result_total} sections found')
-    info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
-    if info_choice == 1:
-        while True:
-            continue_choice = btc.read_int_ranged('1 to view next, 2 to quit: ', 1, 2)
-            print(next(result_cycle).name)
-            if continue_choice == 1:
-                print(next(result_cycle))
-            elif continue_choice == 2:
-                print('returning to main menu')
-                break      
-        
 def find_category(args, session):
     query = session.query(Category)
     if args.category_id:
@@ -815,8 +814,61 @@ def edit_second_item(session, model, id_value, new_second_value):
 #Edit section section: edit sections
 
 #finalize section: functions to finalize articles
-            
+
 def finalize(session, start_date, end_date):
+    start_date = parse(start_date)
+    end_date = parse(end_date)
+    query = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+    query = query.filter(Entry.description.like('%not specified%')).all()
+    #print(query)
+    result = it.cycle(query)
+    undescribed_articles = len(query)
+    print(f'{undescribed_articles} undescribed articles')
+    while True:
+        try:
+            active_item=next(result)
+        except StopIteration:
+            print('No undescribed entries, return to main menu')
+            return
+        print('Next entry: ', active_item.name)
+        continue_choice = btc.read_int_ranged('press 1 to continue, 2 to quit', 1, 2)
+        if continue_choice == 1:
+            #os.system('cls||clear')
+            undesc = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+            undesc = undesc.filter(Entry.description.like('%not specified%')).all()
+            undescribed = len(undesc)
+            print(f'{undescribed} undescribed articles remaining')
+            #active_item = next(result)
+            print(f'''\n
+Entry ID: {active_item.id_value}
+Title: {active_item.name_value}
+Date: {active_item.date}
+Link: {active_item.entry_url}
+Authors: {active_item.authors}
+Publication: {active_item.publication}
+Category: {active_item.category}
+Description: {active_item.description}
+Keywords: {active_item.keywords}''')
+            #print(active_item, end='\n')
+            edit_choice = btc.read_int_ranged('Edit description 1-yes, 2-no, 3-quit? ', 1, 3)
+            if edit_choice == 1:
+                #new_desc = get_description()
+                new_desc = btc.read_text('Enter new description or "." to cancel: ')
+                if new_desc != '.': 
+                    active_item.description = new_desc
+                    session.commit()
+                else:
+                    new_desc = 'Not specified' #if the user doens't edit it
+                #undescribed_articles -= 1
+            elif edit_choice ==2:
+                continue
+            elif edit_choice == 3:
+                print('Returning to main menu')
+                return
+        elif continue_choice == 2:
+            break
+            
+def finalize2(session, start_date, end_date):
     start_date = parse(start_date)
     end_date = parse(end_date)
     query = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
