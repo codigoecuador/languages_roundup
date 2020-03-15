@@ -118,7 +118,11 @@ class Category(Base):
     
     @property
     def wrapped_html_string(self):
-        return '''<p>{0}</p>'''.format(self.name)
+        return f'''<p>{self.name}</p>'''
+
+    @property
+    def wrapped_jsx_string(self):
+        return f'''<p>{self.name}</p>'''
     
     @hybrid_property
     def id_value(self):
@@ -146,6 +150,10 @@ class Section(Base):
 
     @property
     def wrapped_html_string(self):
+        return '''<p>{0}</p>'''.format(self.name)
+    
+        @property
+    def wrapped_jsx_string(self):
         return '''<p>{0}</p>'''.format(self.name)
     
     @hybrid_property
@@ -212,6 +220,14 @@ class Entry(Base):
         template = '<p><a href ={0}>{1}</a>({2}) {3}</p>'
         return template.format(self.entry_url, self.entry_name, self.get_date_formatted,
                                self.description)
+        
+    @property
+    def wrapped_jsx_string(self):
+        '''For use when creating wrapped html strings for html files'''
+        template = '<p><a href ="{0}">{1}</a>({2}) {3}</p>'
+        return template.format(self.entry_url, self.entry_name, self.get_date_formatted,
+                               self.description)
+    
     @hybrid_property
     def name_value(self):
         return self.entry_name
