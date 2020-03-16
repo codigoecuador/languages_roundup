@@ -617,7 +617,31 @@ def find_section(args, session):
                 print(next(result_cycle))
             elif continue_choice == 2:
                 print('returning to main menu')
-                break      
+                break
+                
+def find_keyword(args, session):
+    query = session.query(Keyword)
+    if args.section_id:
+        query = query.filter(Keyword.keyword_id==args.section_id)
+    if args.name:
+        query = query.filter(Keyword.word.like(f'%{args.name}%'))
+    result = query.all()
+    result_total = len(result)
+    if result_total == 0:
+        print('no sections found')
+        return
+    result_cycle = it.cycle(result)
+    print(f'{result_total} keywords found')
+    info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
+    if info_choice == 1:
+        while True:
+            continue_choice = btc.read_int_ranged('1 to view next, 2 to quit: ', 1, 2)
+            print(next(result_cycle).name)
+            if continue_choice == 1:
+                print(next(result_cycle))
+            elif continue_choice == 2:
+                print('returning to main menu')
+                break 
         
 def find_category(args, session):
     query = session.query(Category)
@@ -1086,6 +1110,7 @@ def from_newspaper(url):
                                 title=new_title,
                                url=new_article.source_url)
     except Exception as e:
+        print(e)
         #if there's already a publication with that URL
         new_title = input('Enter publication title: ')
         new_source_url = input('Enter source URL: ')
@@ -1140,6 +1165,7 @@ def from_newspaper_two(url, category_id = None, date=None):
                                 title=new_title,
                                url=new_article.source_url)
     except Exception as e:
+        print(e)
         #if there's already a publication with that URL
         new_title = input('Enter publication title: ')
         new_source_url = input('Enter source URL: ')
@@ -1269,17 +1295,42 @@ def export_html2(session, program, start_date, end_date, title):
             entry_map = map(wrapString, [i for i in category.entries if (i.date >=start_date) and (i.date <=end_date)])
             entry_str = '\n'.join(entry_map)
             f.write(entry_str)
+    closing_wrapper = """</body>
+    </html>"""
+    f.write(closing_wrapper)
+
+def export_jsx(session, program, start_date, end_date, title):
+    filename = program + '.html'
+    f = open(filename, 'w')
+
+    opening_wrapper = f"""<html>
+    <head>
+    <title>{title}</title>
+    </head>
+    <body><p>{title}</p>"""#.format(title)
+    f.write(opening_wrapper)
+    section_query = session.query(Section)
+    section_query = section_query.all()
+    for section in section_query:
+        f.write(section.wrapped_jsx_string)
+        for category in section.categories:
+            f.write(category.wrapped_jsx_string)
+            entry_map = map(wrapStringJSX, [i for i in category.entries if (i.date >=start_date) and (i.date <=end_date)])
+            entry_str = '\n'.join(entry_map)
+            f.write(entry_str)
             #for entry in category.entries:
                 #if (entry.date >= start_date) and (entry.date <= end_date):
                     #f.write(entry.wrapped_html_string)
     closing_wrapper = """</body>
     </html>"""
     f.write(closing_wrapper)
-
     
     
 def wrapString(item):
     return item.wrapped_html_string
+
+def wrapStringJSX(item):
+    return item.wrapped_jsx_string
 
 def getNameValue(item):
     return item.name_value

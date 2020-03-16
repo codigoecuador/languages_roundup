@@ -617,7 +617,31 @@ def find_section(args, session):
                 print(next(result_cycle))
             elif continue_choice == 2:
                 print('returning to main menu')
-                break      
+                break
+                
+def find_keyword(args, session):
+    query = session.query(Keyword)
+    if args.section_id:
+        query = query.filter(Keyword.keyword_id==args.section_id)
+    if args.name:
+        query = query.filter(Keyword.word.like(f'%{args.name}%'))
+    result = query.all()
+    result_total = len(result)
+    if result_total == 0:
+        print('no sections found')
+        return
+    result_cycle = it.cycle(result)
+    print(f'{result_total} keywords found')
+    info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
+    if info_choice == 1:
+        while True:
+            continue_choice = btc.read_int_ranged('1 to view next, 2 to quit: ', 1, 2)
+            print(next(result_cycle).name)
+            if continue_choice == 1:
+                print(next(result_cycle))
+            elif continue_choice == 2:
+                print('returning to main menu')
+                break 
         
 def find_category(args, session):
     query = session.query(Category)
