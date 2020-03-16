@@ -152,7 +152,7 @@ class Section(Base):
     def wrapped_html_string(self):
         return '''<p>{0}</p>'''.format(self.name)
     
-    @property
+        @property
     def wrapped_jsx_string(self):
         return '''<p>{0}</p>'''.format(self.name)
     
