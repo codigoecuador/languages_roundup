@@ -122,7 +122,8 @@ class Category(Base):
 
     @property
     def wrapped_jsx_string(self):
-        return f'''<p><i>{self.name}</i></p>\n'''
+        title = self.name.title()
+        return f'''<p><i>{title}</i></p>\n'''
     
     @hybrid_property
     def id_value(self):
@@ -154,7 +155,8 @@ class Section(Base):
     
     @property
     def wrapped_jsx_string(self):
-        return '''<p><b>{0}<b></p>\n'''.format(self.name)
+        title = self.name.title()
+        return f'''<p><b>{title}</b></p>\n'''#.format(self.name)
     
     @hybrid_property
     def name_value(self):
