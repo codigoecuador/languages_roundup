@@ -724,41 +724,41 @@ def search_by_id(search_type, item_id, session):
     else:
         print('Invalid search type. Return to main menu.')
 
-def name_search(session, line):
-    category_result = session.query(Category).filter(Category.name.like(f'%{line}%'))#.format(line))).all()
-    section_result = session.query(Section).filter(Section.name.like(f'%{line}%'))#.format(line))).all()
-    entry_result = session.query(Entry).filter(Entry.entry_name.like(f'%{line}%'))#.format(line))).all()
-    keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{line}%')).all()
-    publication_result = session.query(Publication).filter(Publication.title.like(f'%{line}%')).all()
-    author_result = session.query(Author).filter(Author.author_name.like(f'%{line}%')).all()
-    result = it.cycle(category_result+section_result+entry_result+keyword_result+publication_result+author_result)
-    #result2 = it.cycle(result)
-    while True:
-        try:
-            pprint.pprint(next(result))
-        except StopIteration:
-            print('no more left')
-        continue_choice = btc.read_int_ranged('1 to view more results, 2 to return to main menu', 1,2)
-        if continue_choice != 1:
-            break
-            
-def name_search2(session, line):
-    category_result = session.query(Category).filter(Category.name.like(f'%{line}%')).all()
-    section_result = session.query(Section).filter(Section.name.like(f'%{line}%')).all()#.format(line))).all()
-    entry_result = session.query(Entry).filter(Entry.entry_name.like(f'%{line}%')).all()#.format(line))).all()
-    keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{line}%')).all()#.format(line))).all()
-    publication_result = session.query(Publication).filter(Publication.title.like(f'%{line}%')).all()#like('%{0}%'.format(line))).all()
-    author_result = session.query(Author).filter(Author.author_name.like(f'%{line}%')).all()
-    result = it.cycle(category_result+section_result+entry_result+keyword_result+publication_result+author_result)
-    #result2 = it.cycle(result)
-    while True:
-        try:
-            pprint.pprint(next(result))
-        except StopIteration:
-            print('no more left')
-        continue_choice = btc.read_int_ranged('1 to view more results, 2 to return to main menu', 1,2)
-        if continue_choice != 1:
-            break
+#def name_search(session, line):
+#    category_result = session.query(Category).filter(Category.name.like(f'%{line}%'))#.format(line))).all()
+#    section_result = session.query(Section).filter(Section.name.like(f'%{line}%'))#.format(line))).all()
+#    entry_result = session.query(Entry).filter(Entry.entry_name.like(f'%{line}%'))#.format(line))).all()
+#    keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{line}%')).all()
+#    publication_result = session.query(Publication).filter(Publication.title.like(f'%{line}%')).all()
+#    author_result = session.query(Author).filter(Author.author_name.like(f'%{line}%')).all()
+#    result = it.cycle(category_result+section_result+entry_result+keyword_result+publication_result+author_result)
+#    #result2 = it.cycle(result)
+#    while True:
+#        try:
+#            pprint.pprint(next(result))
+#        except StopIteration:
+#            print('no more left')
+#        continue_choice = btc.read_int_ranged('1 to view more results, 2 to return to main menu', 1,2)
+#        if continue_choice != 1:
+#            break
+#            
+#def name_search2(session, line):
+#    category_result = session.query(Category).filter(Category.name.like(f'%{line}%')).all()
+#    section_result = session.query(Section).filter(Section.name.like(f'%{line}%')).all()#.format(line))).all()
+#    entry_result = session.query(Entry).filter(Entry.entry_name.like(f'%{line}%')).all()#.format(line))).all()
+#    keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{line}%')).all()#.format(line))).all()
+#    publication_result = session.query(Publication).filter(Publication.title.like(f'%{line}%')).all()#like('%{0}%'.format(line))).all()
+#    author_result = session.query(Author).filter(Author.author_name.like(f'%{line}%')).all()
+#    result = it.cycle(category_result+section_result+entry_result+keyword_result+publication_result+author_result)
+#    #result2 = it.cycle(result)
+#    while True:
+#        try:
+#            pprint.pprint(next(result))
+#        except StopIteration:
+#            print('no more left')
+#        continue_choice = btc.read_int_ranged('1 to view more results, 2 to return to main menu', 1,2)
+#        if continue_choice != 1:
+#            break
 
 def get_articles_for_roundup(start_date, end_date, category_id):
     '''
@@ -1051,13 +1051,13 @@ def edit_entry(session, entry_id):
 #add_articles: this section is for adding entries, this is separate due to the complexity of the code. The entries
 #must be downloaded using the newspaper app.
 
-def add_entry(session, url, category_id=None, date=None):
-    new_entry = from_newspaper_two(url=url, category_id=category_id, date=date)
-    session.add(new_entry)
-    session.commit()
-    print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
+#def add_entry(session, url, category_id=None, date=None):
+#    new_entry = from_newspaper_two(url=url, category_id=category_id, date=date)
+#    session.add(new_entry)
+#    session.commit()
+#    print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
 
-def qa(session, url, category_id, date, description=None):
+def add_entry(session, url, category_id, date, description=None):
     'qa is short for quick_add'
     try:
         assert len(category_id) <=4, 'category_id out of order'
@@ -1091,116 +1091,116 @@ def qa(session, url, category_id, date, description=None):
     session.commit()
     print(f'{new_entry.name} added successfully')#.format(new_entry.name))
     
-def from_newspaper(url):
-    #include confirm option to make sure that the user wants to add the article
-    new_article = make_article(url)
-    print('\nTitle:')#, new_article.title)
-    pprint.pprint(new_article.title)
-    print('Summary:')#, new_article.summary)
-    pprint.pprint(new_article.summary)
-    try:
-        new_pub = get(dal.session, Publication,
-                               url=new_article.source_url)
-        if new_pub != None:
-            print(new_pub)
-            pub_choice = btc.read_bool(decision=f'Confirm {new_pub} as article publication? ',
-                                       yes='y', no='n',
-                                       yes_option='confirm', no_option='cancel')
-            if pub_choice != True:
-                #if the user REJECTS the publication that is listed
-                new_title = input('Enter publication title: ')
-                new_source_url = input('Enter source URL: ')
-                new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_source_url)
-        else:
-            #if we have a source URL but no title
-            new_title = input('Enter publication title: ')
-            new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_article.source_url)
-    except Exception as e:
-        print(e)
-        #if there's already a publication with that URL
-        new_title = input('Enter publication title: ')
-        new_source_url = input('Enter source URL: ')
-        new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_source_url)
-    publication_id = new_pub.publication_id
-    print('-'*64)
-    display_categories()
-    category_id = int(input('Enter category ID: '))
-    #pub_title = input('Enter publication title: ')
-    
-    date = create_date(new_article)
-    description=get_description()
-    confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
-    if confirm_choice == 2:
-        print('Article add cancelled')
-        return
-    else:
-        authors = [get_or_create(dal.session, Author, author_name=i) for i in new_article.authors]
-        keywords = [get_or_create(dal.session, Keyword, word=i) for i in new_article.keywords]
-        return create_entry(article=new_article, description=description,
-                            publication_id=publication_id, category_id=category_id,
-                            date=date, authors=authors, keywords=keywords)
-    
-def from_newspaper_two(url, category_id = None, date=None):
-    #include confirm option to make sure that the user wants to add the article
-    new_article = make_article(url)
-    print('\nTitle:')#, new_article.title)
-    pprint.pprint(new_article.title)
-    print('Summary:')#, new_article.summary)
-    pprint.pprint(new_article.summary)
-    try:
-        new_pub = get(dal.session, Publication,
-                               url=new_article.source_url)
-        if new_pub != None:
-            print(new_pub)
-            pub_choice = btc.read_bool(decision=f'Confirm {new_pub} as article publication? ',
-                                       yes='y', no='n',
-                                       yes_option='confirm', no_option='cancel')
-            if pub_choice != True:
-                #if the user REJECTS the publication that is listed
-                new_title = input('Enter publication title: ')
-                new_source_url = input('Enter source URL: ')
-                new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_source_url)
-        else:
-            #if we have a source URL but no title
-            new_title = input('Enter publication title: ')
-            new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_article.source_url)
-    except Exception as e:
-        print(e)
-        #if there's already a publication with that URL
-        new_title = input('Enter publication title: ')
-        new_source_url = input('Enter source URL: ')
-        new_pub = get_or_create(dal.session, Publication,
-                                title=new_title,
-                               url=new_source_url)
-    publication_id = new_pub.publication_id
-    print('-'*64)
-    if category_id == None:
-        display_categories()
-        category_id = int(input('Enter category ID: '))
-    #pub_title = input('Enter publication title: ')
-    if date == None:
-        date = create_date(new_article)
-    description=get_description()
-    confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
-    if confirm_choice == 2:
-        print('Article add cancelled')
-        return
-    else:
-        authors = [get_or_create(dal.session, Author, author_name=i) for i in new_article.authors]
-        keywords = [get_or_create(dal.session, Keyword, word=i) for i in new_article.keywords]
-        return create_entry(article=new_article, description=description,
-                            publication_id=publication_id, category_id=category_id,
-                            date=date, authors=authors, keywords=keywords)
+#def from_newspaper(url):
+#    #include confirm option to make sure that the user wants to add the article
+#    new_article = make_article(url)
+#    print('\nTitle:')#, new_article.title)
+#    pprint.pprint(new_article.title)
+#    print('Summary:')#, new_article.summary)
+#    pprint.pprint(new_article.summary)
+#    try:
+#        new_pub = get(dal.session, Publication,
+#                               url=new_article.source_url)
+#        if new_pub != None:
+#            print(new_pub)
+#            pub_choice = btc.read_bool(decision=f'Confirm {new_pub} as article publication? ',
+#                                       yes='y', no='n',
+#                                       yes_option='confirm', no_option='cancel')
+#            if pub_choice != True:
+#                #if the user REJECTS the publication that is listed
+#                new_title = input('Enter publication title: ')
+#                new_source_url = input('Enter source URL: ')
+#                new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_source_url)
+#        else:
+#            #if we have a source URL but no title
+#            new_title = input('Enter publication title: ')
+#            new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_article.source_url)
+#    except Exception as e:
+#        print(e)
+#        #if there's already a publication with that URL
+#        new_title = input('Enter publication title: ')
+#        new_source_url = input('Enter source URL: ')
+#        new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_source_url)
+#    publication_id = new_pub.publication_id
+#    print('-'*64)
+#    display_categories()
+#    category_id = int(input('Enter category ID: '))
+#    #pub_title = input('Enter publication title: ')
+#    
+#    date = create_date(new_article)
+#    description=get_description()
+#    confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
+#    if confirm_choice == 2:
+#        print('Article add cancelled')
+#        return
+#    else:
+#        authors = [get_or_create(dal.session, Author, author_name=i) for i in new_article.authors]
+#        keywords = [get_or_create(dal.session, Keyword, word=i) for i in new_article.keywords]
+#        return create_entry(article=new_article, description=description,
+#                            publication_id=publication_id, category_id=category_id,
+#                            date=date, authors=authors, keywords=keywords)
+#    
+#def from_newspaper_two(url, category_id = None, date=None):
+#    #include confirm option to make sure that the user wants to add the article
+#    new_article = make_article(url)
+#    print('\nTitle:')#, new_article.title)
+#    pprint.pprint(new_article.title)
+#    print('Summary:')#, new_article.summary)
+#    pprint.pprint(new_article.summary)
+#    try:
+#        new_pub = get(dal.session, Publication,
+#                               url=new_article.source_url)
+#        if new_pub != None:
+#            print(new_pub)
+#            pub_choice = btc.read_bool(decision=f'Confirm {new_pub} as article publication? ',
+#                                       yes='y', no='n',
+#                                       yes_option='confirm', no_option='cancel')
+#            if pub_choice != True:
+#                #if the user REJECTS the publication that is listed
+#                new_title = input('Enter publication title: ')
+#                new_source_url = input('Enter source URL: ')
+#                new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_source_url)
+#        else:
+#            #if we have a source URL but no title
+#            new_title = input('Enter publication title: ')
+#            new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_article.source_url)
+#    except Exception as e:
+#        print(e)
+#        #if there's already a publication with that URL
+#        new_title = input('Enter publication title: ')
+#        new_source_url = input('Enter source URL: ')
+#        new_pub = get_or_create(dal.session, Publication,
+#                                title=new_title,
+#                               url=new_source_url)
+#    publication_id = new_pub.publication_id
+#    print('-'*64)
+#    if category_id == None:
+#        display_categories()
+#        category_id = int(input('Enter category ID: '))
+#    #pub_title = input('Enter publication title: ')
+#    if date == None:
+#        date = create_date(new_article)
+#    description=get_description()
+#    confirm_choice = btc.read_int_ranged('Confirm article add (1-yes, 2-no) : ', 1, 2)
+#    if confirm_choice == 2:
+#        print('Article add cancelled')
+#        return
+#    else:
+#        authors = [get_or_create(dal.session, Author, author_name=i) for i in new_article.authors]
+#        keywords = [get_or_create(dal.session, Keyword, word=i) for i in new_article.keywords]
+#        return create_entry(article=new_article, description=description,
+#                            publication_id=publication_id, category_id=category_id,
+#                            date=date, authors=authors, keywords=keywords)
 
 
 
@@ -1248,28 +1248,28 @@ def delete_item(session, model, id_value):
     else:
         print('Item not found, delete cancelled')
     
-def export_html(session, program, start_date, end_date, title):
-    filename = program + '.html'
-    f = open(filename, 'w')
-
-    opening_wrapper = f"""<html>
-    <head>
-    <title>{title}</title>
-    </head>
-    <body><p>{title}</p>"""
-    f.write(opening_wrapper)
-    section_query = session.query(Section)
-    section_query = section_query.all()
-    for section in section_query:
-        f.write(section.wrapped_html_string)
-        for category in section.categories:
-            f.write(category.wrapped_html_string)
-            for entry in category.entries:
-                if (entry.date >= start_date) and (entry.date <= end_date):
-                    f.write(entry.wrapped_html_string)
-    closing_wrapper = """</body>
-    </html>"""
-    f.write(closing_wrapper)
+#def export_html(session, program, start_date, end_date, title):
+#    filename = program + '.html'
+#    f = open(filename, 'w')
+#
+#    opening_wrapper = f"""<html>
+#    <head>
+#    <title>{title}</title>
+#    </head>
+#    <body><p>{title}</p>"""
+#    f.write(opening_wrapper)
+#    section_query = session.query(Section)
+#    section_query = section_query.all()
+#    for section in section_query:
+#        f.write(section.wrapped_html_string)
+#        for category in section.categories:
+#            f.write(category.wrapped_html_string)
+#            for entry in category.entries:
+#                if (entry.date >= start_date) and (entry.date <= end_date):
+#                    f.write(entry.wrapped_html_string)
+#    closing_wrapper = """</body>
+#    </html>"""
+#    f.write(closing_wrapper)
 
 def make_html_roundup(line, session):
     del line
@@ -1310,6 +1310,7 @@ def export_html2(session, program, start_date, end_date, title):
     f.write(closing_wrapper)
 
 def export_jsx(session, program, start_date, end_date, title):
+    """Do not mess with this function it exports roundups"""
     filename = program + '.html'
     f = open(filename, 'w')
 
@@ -1336,6 +1337,7 @@ def export_jsx(session, program, start_date, end_date, title):
     f.write(closing_wrapper)
     
 def exp_full_jsx(session, program, start_date, end_date, title, use_sections=False):
+    """Do not mess with this function, it exports roundups"""
     opening_wrapper = """import React, { Component } from "react";
 import { connect } from "react-redux";
 import "slick-carousel/slick/slick.css";
