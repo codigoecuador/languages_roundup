@@ -1248,15 +1248,28 @@ def delete_item(session, model, id_value):
     else:
         print('Item not found, delete cancelled')
     
-def export_html(session, program, start_date, end_date, title):
-    filename = program + '.html'
-    f = open(filename, 'w')
-
-    section_query = session.query(Section)
-    for section in section_query:
-        for category in section.categories:
-                if (entry.date >= start_date) and (entry.date <= end_date):
-    </html>"""
+#def export_html(session, program, start_date, end_date, title):
+#    filename = program + '.html'
+#    f = open(filename, 'w')
+#
+#    opening_wrapper = f"""<html>
+#    <head>
+#    <title>{title}</title>
+#    </head>
+#    <body><p>{title}</p>"""
+#    f.write(opening_wrapper)
+#    section_query = session.query(Section)
+#    section_query = section_query.all()
+#    for section in section_query:
+#        f.write(section.wrapped_html_string)
+#        for category in section.categories:
+#            f.write(category.wrapped_html_string)
+#            for entry in category.entries:
+#                if (entry.date >= start_date) and (entry.date <= end_date):
+#                    f.write(entry.wrapped_html_string)
+#    closing_wrapper = """</body>
+#    </html>"""
+#    f.write(closing_wrapper)
 
 def make_html_roundup(line, session):
     del line
@@ -1267,14 +1280,13 @@ def make_html_roundup(line, session):
     start_date = btc.read_date('Pease enter start date ("MM/DD/YYYY"): ')
     end_date = btc.read_date('Please enter end date ("MM/DD/YYYY"):')
     try:
-        export_html(session=session, program=filename, title=title,
+        export_html2(session=session, program=filename, title=title,
                            start_date=start_date, end_date=end_date)
         print(f'{filename} exported successfully')#.format(filename) )
     except Exception as e:
         print(e)
     
 def export_html2(session, program, start_date, end_date, title):
-def export_html(session, program, start_date, end_date, title):
     filename = program + '.html'
     f = open(filename, 'w')
 
