@@ -1325,6 +1325,61 @@ def export_jsx(session, program, start_date, end_date, title):
     </html>"""
     f.write(closing_wrapper)
     
+def exp_full_jsx(session, program, start_date, end_date, title, use_sections=False):
+    opening_wrapper = """
+import React, { Component } from "react";
+import { connect } from "react-redux";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
+import "./Roundup.css";
+
+class RoundupContainer extends Component {
+  render() {
+    let num;
+    this.props.size === "mobile" ? (num = 1) : (num = 2);
+
+    return (
+      <div className="main-container">
+        <div className="headline roundup-headline">
+          <span className="gold">Roundup</span>
+        </div>
+
+        <div className="roundup-container-text">
+          <div className="subhead center roundup-subhead">
+            News Roundup: latest updates on coding and web development
+          </div>
+
+          <p>"""
+          
+    closing_wrapper = '''</p>
+        </div>
+
+      </div>
+    );
+  }
+}
+
+const mapStateToProps = state => {
+  return { size: state.size };
+};
+export default connect(mapStateToProps)(RoundupContainer);'''
+    
+    #export a full JSX file
+    if use_sections == True:
+        warnings.warn('Sections for JSX not implemented yet')
+        f.close()
+        return
+    filename = program + '.js'
+    
+    with open(filename, 'w') as f:
+        f.write(opening_wrapper)
+        cat_query = session.query(Category).all()
+        for cat in cat_query: #new way of displaying the category names
+            f.write(f"<p><b>{cat.name.title()}</b></p>\n")
+            entry_map = map(wrapStringJSX, [i for i in cat.entries if (i.date >=start_date) and (i.date <=end_date)])
+            entry_str = '\n'.join(entry_map)
+            f.write(entry_str)
+        f.write(closing_wrapper)
     
 def wrapString(item):
     return item.wrapped_html_string
