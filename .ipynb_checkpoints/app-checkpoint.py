@@ -434,7 +434,7 @@ def create_date(article):
     then if there is no date, it asks the user for input'''
     new_date = check_date(article)
     if new_date == None:
-        dateObj = input('Enter the date mm/dd/yyyy')
+        dateObj = input('Enter the date mm/dd/yyyy: ')
         new_date = parse(dateObj)
         #return new_date
     else:
@@ -587,10 +587,20 @@ def find_entry(args, session):
         info_choice = btc.read_int_ranged('1 to view results, 2 to cancel: ', 1, 2)
         if info_choice == 1:
             while True:
-                continue_choice = btc.read_int_ranged('1 to view next, 2 to quit', 1, 2)
-                print(next(result_cycle).name)
+                next_item = next(result_cycle)
+                continue_choice = btc.read_int_ranged(f'1 to view {next_item.name}, 2 to quit: ', 1, 2)
+                #print(next(result_cycle).name)
                 if continue_choice == 1:
-                    print(next(result_cycle))
+                    #print(next(result_cycle))
+                    print(next_item)
+                    edit_choice = btc.read_int_ranged(f'1-edit {next_item.name}, 2-(continue) 3-quit:', 1, 3)
+                    if edit_choice == 1:
+                        edit_entry(session=session, entry_id=next_item.entry_id)
+                    elif edit_choice == 2:
+                        continue
+                    elif edit_choice == 3:
+                        print('Edit cancelled, return to main menu')
+                        return
                 elif continue_choice == 2:
                     print('returning to main menu')
                     break
@@ -1242,24 +1252,11 @@ def export_html(session, program, start_date, end_date, title):
     filename = program + '.html'
     f = open(filename, 'w')
 
-    opening_wrapper = f"""<html>
-    <head>
-    <title>{title}</title>
-    </head>
-    <body><p>{title}</p>"""
-    f.write(opening_wrapper)
     section_query = session.query(Section)
-    section_query = section_query.all()
     for section in section_query:
-        f.write(section.wrapped_html_string)
         for category in section.categories:
-            f.write(category.wrapped_html_string)
-            for entry in category.entries:
                 if (entry.date >= start_date) and (entry.date <= end_date):
-                    f.write(entry.wrapped_html_string)
-    closing_wrapper = """</body>
     </html>"""
-    f.write(closing_wrapper)
 
 def make_html_roundup(line, session):
     del line
@@ -1270,13 +1267,14 @@ def make_html_roundup(line, session):
     start_date = btc.read_date('Pease enter start date ("MM/DD/YYYY"): ')
     end_date = btc.read_date('Please enter end date ("MM/DD/YYYY"):')
     try:
-        export_html2(session=session, program=filename, title=title,
+        export_html(session=session, program=filename, title=title,
                            start_date=start_date, end_date=end_date)
         print(f'{filename} exported successfully')#.format(filename) )
     except Exception as e:
         print(e)
     
 def export_html2(session, program, start_date, end_date, title):
+def export_html(session, program, start_date, end_date, title):
     filename = program + '.html'
     f = open(filename, 'w')
 
@@ -1326,8 +1324,7 @@ def export_jsx(session, program, start_date, end_date, title):
     f.write(closing_wrapper)
     
 def exp_full_jsx(session, program, start_date, end_date, title, use_sections=False):
-    opening_wrapper = """
-import React, { Component } from "react";
+    opening_wrapper = """import React, { Component } from "react";
 import { connect } from "react-redux";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -1365,20 +1362,32 @@ const mapStateToProps = state => {
 export default connect(mapStateToProps)(RoundupContainer);'''
     
     #export a full JSX file
-    if use_sections == True:
-        warnings.warn('Sections for JSX not implemented yet')
-        f.close()
-        return
+    #if use_sections == True:
+       # warnings.warn('Sections for JSX not implemented yet')
+       # f.close()
+       # return
     filename = program + '.js'
     
     with open(filename, 'w') as f:
         f.write(opening_wrapper)
-        cat_query = session.query(Category).all()
-        for cat in cat_query: #new way of displaying the category names
-            f.write(f"<p><b>{cat.name.title()}</b></p>\n")
-            entry_map = map(wrapStringJSX, [i for i in cat.entries if (i.date >=start_date) and (i.date <=end_date)])
-            entry_str = '\n'.join(entry_map)
-            f.write(entry_str)
+        if use_sections == False:
+            cat_query = session.query(Category).all()
+            for cat in cat_query: #new way of displaying the category names
+                f.write(f"<p><b>{cat.name.title()}</b></p>\n")
+                entry_map = map(wrapStringJSX, [i for i in cat.entries if (i.date >=start_date) and (i.date <=end_date)])
+                entry_str = '\n'.join(entry_map)
+                f.write(entry_str)
+        elif use_sections == True:
+            print('sections included in roundup')
+            section_query = session.query(Section)
+            section_query = section_query.all()
+            for section in section_query:
+                f.write(section.wrapped_jsx_string)
+                for category in section.categories:
+                    f.write(category.wrapped_jsx_string)
+                    entry_map = map(wrapStringJSX, [i for i in category.entries if (i.date >=start_date) and (i.date <=end_date)])
+                    entry_str = '\n'.join(entry_map)
+                    f.write(entry_str)
         f.write(closing_wrapper)
     
 def wrapString(item):
