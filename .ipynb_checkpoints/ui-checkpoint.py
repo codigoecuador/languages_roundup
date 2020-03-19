@@ -9,7 +9,7 @@ import cmd2
 import newspaper as np
 from dateutil.parser import parse
 from roundup_db1 import Entry, Category, Keyword, Publication, Author, Section, DataAccessLayer
-import app
+import app,roundup_help
 import sys, glob, datetime, os
 import BTCInput2 as btc
 import itertools as it
