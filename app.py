@@ -698,31 +698,31 @@ def search_exact_name(line, session):
     else:
         print('Invalid search type, return to main menu')
 
-def search_by_id(search_type, item_id, session):
-    '''This will serve as a universal function to get an item by its id'''
-    search_type = search_type.lower()
-    search_types = {'entry': Entry, 'category': Category,
-                   'publication': Publication, 'section': Section,
-                   'keyword': Keyword, 'author': Author}
-    item_types = {'entry': 'keywords and authors', 'category': 'entries',
-                   'publication': 'entries', 'section': 'categories',
-                   'keyword': 'entries', 'author': 'entries'}
-    if search_type in search_types:
-        result = get(session=session, model=search_types[search_type], id_value=item_id)
-        print(result)
-        info_choice = btc.read_int_ranged('View more information? (1-yes, 2-quit) ',1,2)
-        if info_choice == 1:
-            misc = it.cycle(result.items)
-            while True:
-                print(f'Cycles through {item_types[search_type]}')#.format(item_types[search_type]))
-                continue_choice = btc.read_int_ranged('1 to view next, 2 to quit', 1, 2)
-                if continue_choice == 1:
-                    print(next(misc))
-                elif continue_choice == 2:
-                    print('returning to main menu')
-                    break
-    else:
-        print('Invalid search type. Return to main menu.')
+#def search_by_id(search_type, item_id, session):
+#        '''This will serve as a universal function to get an 1 by its id'''
+#    search_type = search_type.lower()
+#    search_types = {'entry': Entry, 'category': Category,
+#                   'publication': Publication, 'section': Section,
+#                   'keyword': Keyword, 'author': Author}
+#    item_types = {'entry': 'keywords and authors', 'category': 'entries',
+#                   'publication': 'entries', 'section': 'categories',
+#                   'keyword': 'entries', 'author': 'entries'}
+#    if search_type in search_types:
+#        result = get(session=session, model=search_types[search_type], id_value=item_id)
+#        print(result)
+#        info_choice = btc.read_int_ranged('View more information? (1-yes, 2-quit) ',1,2)
+#        if info_choice == 1:
+#            misc = it.cycle(result.items)
+#            while True:
+#                print(f'Cycles through {item_types[search_type]}')#.format(item_types[search_type]))
+#                continue_choice = btc.read_int_ranged('1 to view next, 2 to quit', 1, 2)
+#                if continue_choice == 1:
+#                    print(next(misc))
+#                elif continue_choice == 2:
+#                    print('returning to main menu')
+ #                   break
+  #  else:
+   #     print('Invalid search type. Return to main menu.')
 
 #def name_search(session, line):
 #    category_result = session.query(Category).filter(Category.name.like(f'%{line}%'))#.format(line))).all()
@@ -818,8 +818,13 @@ def edit_name(session, model, id_value, new_name):
             'Please enter "entry", category, section, keyword, publication, author'))
         query = query.filter(models.get(model).id_value == id_value)
         result = query.one()
-        result.name_value = new_name
-        session.commit()
+        confirm_choice = btc.read_int_ranged(f'Replace {result.name_value} with {new_name}? 1-accept, 2-quit', 1, 2)
+        if confirm_choice == 1:
+            result.name = new_name
+            session.commit()
+        else:
+            print('edit cancelled, return to main menu')
+            return
     else:
         return
     
