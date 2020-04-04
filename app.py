@@ -9,6 +9,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 import functools
 import pprint
 import warnings
+from collections import Counter
 
 import docx
 from docx.enum.dml import MSO_THEME_COLOR_INDEX
@@ -17,18 +18,18 @@ class Roundup(object):
     '''NOTE: do not try to use the roundup class for anything except exporting roundups'''
     @classmethod
     def prep_export(cls, title, start_date, end_date,
-                   filename, min_category, max_category):
+                   filename, min_category, max_category, intro=None):
         new_sections = get_sections()
         new_sections = [RoundupSection.from_normal_section(i) for i in new_sections]
         result= cls(title=title, start_date=start_date, end_date=end_date,
                    filename=filename, min_category=min_category, max_category=max_category,
-                   sections=new_sections)
+                   sections=new_sections, intro=intro)
         result.make_roundup()
         return result
     
     def __init__(self, title, start_date, end_date,
              filename, min_category=1,
-             max_category=21, sections=[]):#app.get_sections()):
+             max_category=21, sections=[], intro=None):#app.get_sections()):
         self.title = title
         self.start_date = start_date
         self.end_date = end_date
@@ -37,7 +38,7 @@ class Roundup(object):
         self.max_category = max_category
         self.sections = [RoundupSection.from_normal_section(i) for i in sections]
         self.categories = self.get_category_articles()
-        self.introduction=None
+        self.intro=intro
     
     def make_roundup(self):
         '''Takes the sections and gets and organizes the categories. These data structures are used ONLY
@@ -46,6 +47,9 @@ class Roundup(object):
             for category in self.categories:
                 if category.section_id == section.section_id:
                     section.categories.append(category)
+                    #for i in section.categories:
+                       # print(len(i.entries))
+                    #section.categories = list(it.dropwhile(len(category.entries==0), section.categories))
     
     @staticmethod
     def add_hyperlink(paragraph, text, url):
@@ -99,10 +103,14 @@ class Roundup(object):
     
     @staticmethod       
     def add_section(document, section):
-        section_name = document.add_paragraph(section.name)
+        document.add_paragraph(section.name)
+        #section_name = document.add_paragraph(section.name)
+        #new_categories = it.takewhile(lambda x: len(x.entries) >0, section.categories)
+       # section.categories = list(new_categories)
         section.categories.sort(key=lambda x: x.name, reverse=True)
         section.categories.reverse()
         for category in section.categories:
+            #if len(section)
             Roundup.add_category(document, category)
     
     @staticmethod
@@ -113,8 +121,11 @@ class Roundup(object):
         for article in category.entries:
             Roundup.add_article(document, article)
     
-    def create_roundup(self, document, roundup_title, sections):
-        title = document.add_paragraph(roundup_title)
+    def create_roundup(self, document, roundup_title, sections,
+                       intro=None):
+        document.add_paragraph(roundup_title)
+        if intro != None:
+            document.add_paragraph(intro)
         for section in self.sections:
             Roundup.add_section(document, section)
             
@@ -140,7 +151,10 @@ class Roundup(object):
     def export_docx(self):
         #def complete_roundup2(filename, roundup_title, sections):
         new_document = docx.Document()
-        Roundup.create_roundup(self=self, document=new_document, roundup_title=self.title, sections=self.sections)
+        Roundup.create_roundup(self=self, document=new_document,
+                               roundup_title=self.title,
+                               sections=self.sections,
+                               intro =self.intro)
         new_document.save(f'{self.filename}.docx')#.format(self.filename))
         
 class RoundupSection(object):
@@ -181,10 +195,14 @@ class RoundupCategory(object):
     def __repr__(self):
         return f'ArtCat(category_id={self.category_id}, name={self.name})'#.format(self.category_id, self.name)
 
-def export_roundup(title, start_date, end_date, filename, min_category=1, max_category=21):
+def export_roundup(title, start_date, end_date, filename, intro=None, min_category=1, max_category=21):
     '''Exports a docx roundup'''
     new_roundup = Roundup.prep_export(title=title,
-                    start_date=start_date, end_date=end_date, filename=filename, min_category=min_category, max_category=max_category)
+                    start_date=start_date, end_date=end_date,
+                    filename=filename,
+                    min_category=min_category,
+                    max_category=max_category,
+                    intro=intro)
     try:
         new_roundup.export_docx()
         print('Export successful')
@@ -198,6 +216,8 @@ def create_docx_roundup(args):
         if title == '.': return
     else:
         title=' '.join(args.title)
+    if not args.introduction:
+        args.introduction=None
     if not args.date_range:
         start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
         end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
@@ -208,7 +228,8 @@ def create_docx_roundup(args):
         filename = btc.read_text('Enter filename or "." to return to main menu: ')
     #call the export_roundup function to export a docx roundup
     export_roundup(title=title, start_date=parse(args.date_range[0]).date(),
-                   end_date=parse(args.date_range[1]).date(), filename=args.filename)
+                   end_date=parse(args.date_range[1]).date(), filename=args.filename,
+                   intro=args.introduction)
         
 #create section
 
@@ -219,7 +240,7 @@ def add_category(session, category_name):
         return
     else:
         new_category = Category.from_input(category_name=category_name, session=session)
-    confirm_choice = btc.read_int_ranged(f'Add {new_category.name}? 1 to add, 2 to cancel', 1, 2)
+    confirm_choice = btc.read_int_ranged(f'Add {new_category.name}? 1 to add, 2 to cancel: ', 1, 2)
     if confirm_choice == 1:
         session.add(new_category)
         session.commit()
@@ -307,17 +328,19 @@ def add_publication(session, keyword_text):
     
 #modify articles
     
-def add_keyword_to_article(session, entry_id):##model=Keyword):
+def add_keyword_to_article(session, new_keyword, entry_id=None):##model=Keyword):
     """Add a keyword to an existing article, the keyword is appended to the article's
     keywords attribute"""
     #new_keyword = btc.read_text('Enter new keyword: ')
     #make sure the keyword doesn't already exist
+    if entry_id == None:
+        entry_id = btc.read_int(prompt='Find an entry by ID: ')
     entry_result = session.query(Entry).filter(Entry.entry_id==entry_id).scalar()
     if entry_result != None:
         print('Entry found: ')
         print(entry_result)
-        new_keyword=btc.read_text('Enter new keyword: ')
-        edit_choice = btc.read_int_ranged('Add new keyword to this article? (1 for yes, 2 for no)', 1, 2)
+        #new_keyword=btc.read_text('Enter new keyword: ')
+        edit_choice = btc.read_int_ranged(f'Add {new_keyword} to this article? (1 for yes, 2 for no): ', 1, 2)
         if edit_choice == 1:
             keyword_result = session.query(Keyword).filter(Keyword.word.like(f'%{new_keyword}%')).all()#.format(new_keyword))).all()
             if len(keyword_result) >= 1:
@@ -513,12 +536,12 @@ def date_range_count(start_date, end_date, session):
     undesc = session.query(Entry).filter(Entry.date >= start_date) #get number of undescribed articles
     undesc = undesc.filter(Entry.date <= end_date)
     undesc = undesc.filter(Entry.description.like('%not specified%')).all()
-    undesc = len(undesc)
+    undesc_num = len(undesc)
     total = functools.reduce(lambda x, y: x+y,[row[1] for row in query])
     for row in query[::-1]:
         print(row)
     print(total, f'articles total from {start_date} to {end_date}')
-    print(f'Undescribed articles: {undesc}')
+    print(f'Undescribed articles: {undesc_num}')
     
 def articles_needed(start_date, end_date, session):
     min_articles_cat = 5
@@ -562,6 +585,14 @@ def find_entry(args, session):
         query = session.query(Entry)
         if args.category_id:
             query = query.filter(Entry.category_id == args.category_id)
+        if args.category_name:
+            print(args.category_name)
+            cat_name = ' '.join(args.category_name)
+            cat_query = session.query(Category)
+            cat_query = cat_query.filter(Category.name.like(f'%{cat_name}%')).first()
+            print(cat_query)
+            cat_id = cat_query.id_value
+            query = query.filter(Entry.category_id == cat_id)
         if args.id_range:
             query = query.filter(Entry.entry_id >= args.id_range[0],
                                     Entry.entry_id <= args.id_range[1])
@@ -577,6 +608,13 @@ def find_entry(args, session):
             query = query.filter(Entry.url.like(f'%{args.url}%'))
         if args.title:
             query = query.filter(Entry.entry_name.like(f'%{args.title}%'))
+        if args.publication_id:
+            query = query.filter(Entry.publication_id==args.publication_id)
+        if args.publication_title:
+            pub_query = session.query(Publication).filter(Publication.title.like(f'%{args.publication_title}%')).first()
+            pub_id = pub_query.publication_id
+            query=query.filter(Entry.publication_id == pub_id)
+            #query=query.filter(Entry.publication.title.like(f'%{args.publication_title}%'))
         result = query.all()
         result_total = len(result)
         if result_total == 0:
@@ -652,7 +690,14 @@ def find_keyword(args, session):
             elif continue_choice == 2:
                 print('returning to main menu')
                 break 
-        
+
+def get_category(category_name, session):
+    '''Gets the category for the create article function'''
+    category_name = ' '.join(category_name)
+    query = session.query(Category).filter(Category.name.like(f'%{category_name}%')).first()
+    print(query)
+    return query
+
 def find_category(args, session):
     query = session.query(Category)
     if args.category_id:
@@ -680,8 +725,63 @@ def find_category(args, session):
                 print(next(result_cycle))
             elif continue_choice == 2:
                 print('returning to main menu')
-                break                    
-               
+                break
+
+def find_publication(args, session):
+    #add publication search
+    query = session.query(Publication)
+    if args.publication_id:
+        query = query.filter(Publication.id_value == args.publication_id)
+    if args.title:
+        query = query.filter(Publication.title == args.title)
+    if args.url:
+        query = query.filter(Publication.url.like(f'%{args.url}%'))
+    result = query.all()
+    print(result)
+    results = it.cycle(result)
+    active_item = next(results)
+    edit_choice = btc.read_int_ranged(prompt=f'Edit publication {active_item.title} (1-y, 2-n)? ',
+                                      min_value=1,max_value=2)
+    if edit_choice == 1:
+        warnings.warn('Edit publication under development')
+        edit_single_pub(session=session, active_item=active_item)
+    #pass                    
+
+def edit_single_pub(session, active_item):
+    '''Edit a single publication'''
+    while True:
+        print(f'''\n
+Publication ID: {active_item.id_value}
+Title: {active_item.name_value}
+Link: {active_item.url}''')
+        edit_choice = btc.read_int_ranged('Edit title - 1, Edit link - 2, 3-next_publication: ', 1, 3)
+        if edit_choice == 1:
+            view_articles_choice = btc.read_int_ranged('Type 1 to view entries for this publication, 2 to skip', 1, 2)
+            if view_articles_choice == 1:
+                for i in active_item.entries:
+                    print(i)
+               # print(f'Entries:\n{active_item.entries}')
+            else:
+                print('Entries display not needed')
+            new_title = btc.read_text('Enter new title or "." to cancel: ')
+            print(new_title)
+            if new_title != '.': 
+                active_item.title = new_title
+                session.commit()
+            #else:
+                #new_desc = 'Not specified' #if the user doens't edit it
+        elif edit_choice == 2:
+            new_url = btc.read_text('Enter new url or "." to cancel: ')
+            if new_url == ".":
+                print('Edit cancelled')
+                break
+            else:
+                edit_second_item(session=session, model='publication',
+                                 id_value=active_item.id_value,
+                                 new_second_value=new_url)
+        elif edit_choice == 3:
+            break
+       
                     
 def search_exact_name(line, session):
     search_types = {'entry': Entry, 'category': Category, 'publication': Publication,
@@ -807,6 +907,93 @@ def get_entries_by_category(session, line):
                 print('Returning to main menu')
                 break
 
+#EDIT Publication
+                
+def edit_pub(publication_id, session, new_title):
+    query=session.query(Publication)
+    query=query.filter(Publication.id_value == publication_id)
+    result=query.one()
+    edit_choice = btc.read_int_ranged(f'Replace title {result.name} with {new_title}: ', 1, 2)
+    if edit_choice == 1:
+        result.title=new_title
+        session.commit()
+        return result
+    else:
+        print('edit cancelled')
+        return
+    
+def edit_pub2(args, session):
+    query=session.query(Publication)
+    if args.publication_id:
+        query=query.filter(Publication.id_value == args.publication_id)
+        #result=query.filter(Publication.id_value == publication_id).one()
+    elif args.id_range:
+        query = query.filter(Publication.id_value >= args.id_range[0],
+                             Publication.id_value <= args.id_range[1])
+    elif args.title:
+        title_value = ' '.join(args.title)
+        query=query.filter(Publication.title.like(f"{title_value}"))
+    elif args.url:
+        query=query.filter(Publication.url.like(f'{args.url}'))
+    result = query.all()
+    result_total = len(result)
+    if result_total == 0:
+        print('no publications found')
+        return
+    result_cycle = it.cycle(result)
+    remaining_pubs = len(result)
+    print(f'{remaining_pubs} remaining publications')
+    while True:
+        try:
+            active_item=next(result_cycle)
+        except StopIteration:
+            print('No more publications, return to main menu')
+            return
+        print('Next publication: ', active_item.title)
+        continue_choice = btc.read_int_ranged('press 1 to continue, 2 to quit: ', 1, 2)
+        if continue_choice == 1:
+            edit_single_pub(session=session, active_item=active_item)
+#             #os.system('cls||clear')
+#             #undesc = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+#             #undesc = undesc.filter(Entry.description.like('%not specified%')).all()
+#             #undescribed = len(undesc)
+#             #print(f'{undescribed} undescribed articles remaining')
+#             #active_item = next(result)
+#             while True:
+#                 print(f'''\n
+# Publication ID: {active_item.id_value}
+# Title: {active_item.name_value}
+# Link: {active_item.url}''')
+#                 edit_choice = btc.read_int_ranged('Edit title - 1, Edit link - 2, 3-next_publication: ', 1, 3)
+#                 if edit_choice == 1:
+#                     view_articles_choice = btc.read_int_ranged('Type 1 to view entries for this publication, 2 to skip', 1, 2)
+#                     if view_articles_choice == 1:
+#                         for i in active_item.entries:
+#                             print(i)
+#                        # print(f'Entries:\n{active_item.entries}')
+#                     else:
+#                         print('Entries display not needed')
+#                     new_title = btc.read_text('Enter new title or "." to cancel: ')
+#                     print(new_title)
+#                     if new_title != '.': 
+#                         active_item.title = new_title
+#                         session.commit()
+#                     #else:
+#                         #new_desc = 'Not specified' #if the user doens't edit it
+#                 elif edit_choice == 2:
+#                     new_url = btc.read_text('Enter new url or "." to cancel: ')
+#                     if new_url == ".":
+#                         print('Edit cancelled')
+#                         break
+#                     else:
+#                         edit_second_item(session=session, model='publication',
+#                                          id_value=active_item.id_value,
+# #                                          new_second_value=new_url)
+#                 elif edit_choice == 3:
+#                     break
+        elif continue_choice == 2:
+            break
+
 #Generic EDIT section: these functions relate to editing any item
 
 def edit_name(session, model, id_value, new_name):
@@ -845,6 +1032,83 @@ def edit_second_item(session, model, id_value, new_second_value):
 
 #Edit category section: these functions relate to editing categories
 
+def edit_category2(args, session):
+    '''while loop displaying the current values for the category,
+    options for updating, and lets you display the sections. Takes section_id
+    and name as optional arguments as well'''
+    query=session.query(Category)
+    if args.category_id:
+        query=query.filter(Category.id_value == args.category_id)
+        #result=query.filter(Publication.id_value == publication_id).one()
+    elif args.id_range:
+        query = query.filter(Category.id_value >= args.id_range[0],
+                             Category.id_value <= args.id_range[1])
+    elif args.name:
+        name_param = ' '.join(args.name)
+        query=query.filter(Category.name.like(f"{name_param}"))
+    elif args.section_id:
+        query=query.filter(Category.section_id)
+    result = query.all()
+    #KEEP EDITING HERE
+    result_total = len(result)
+    if result_total == 0:
+        print('no publications found')
+        return
+    result_cycle = it.cycle(result)
+    remaining_cats = len(result)
+    print(f'{remaining_cats} remaining categories')
+    while True:
+        try:
+            active_item=next(result_cycle)
+        except StopIteration:
+            print('No more category, return to main menu')
+            return
+        print('Next category: ', active_item.name)
+        continue_choice = btc.read_int_ranged('press 1 to continue, 2 to quit: ', 1, 2)
+        if continue_choice == 1:
+            #os.system('cls||clear')
+            #undesc = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+            #undesc = undesc.filter(Entry.description.like('%not specified%')).all()
+            #undescribed = len(undesc)
+            #print(f'{undescribed} undescribed articles remaining')
+            #active_item = next(result)
+            while True:
+                print(f'''\n
+Category ID: {active_item.id_value}
+Name: {active_item.name_value}
+Section ID: {active_item.section_id}''')
+                edit_choice = btc.read_int_ranged('Edit name - 1, Edit section id - 2, 3- next category: ', 1, 3)
+                if edit_choice == 1:
+                    view_articles_choice = btc.read_int_ranged('Type 1 to view entries for this category, 2 to skip', 1, 2)
+                    if view_articles_choice == 1:
+                        for i in active_item.entries:
+                            print(i)
+                       # print(f'Entries:\n{active_item.entries}')
+                    else:
+                        print('Entries display not needed')
+                    new_name = btc.read_text('Enter new name or "." to cancel: ')
+                    print(new_name)
+                    if new_name != '.': 
+                        active_item.name = new_name
+                        session.commit()
+                    #else:
+                        #new_desc = 'Not specified' #if the user doens't edit it
+                elif edit_choice == 2:
+                    section_list = session.query(Section).all()
+                    pprint.pprint(section_list)
+                    new_section_id = btc.read_int('Enter new section ID or "0" to cancel: ')
+                    if new_section_id == 0:
+                        print('Edit cancelled')
+                        break
+                    else:
+                        edit_second_item(session=session, model='category',
+                                         id_value=active_item.id_value,
+                                         new_second_value=new_section_id)
+                elif edit_choice == 3:
+                    break
+        elif continue_choice == 2:
+            break
+
 #Edit keyword section: formatting keywords
 
 #Edit publication section: editing publications
@@ -871,7 +1135,7 @@ def finalize(session, start_date, end_date):
             print('No undescribed entries, return to main menu')
             return
         print('Next entry: ', active_item.name)
-        continue_choice = btc.read_int_ranged('press 1 to continue, 2 to quit', 1, 2)
+        continue_choice = btc.read_int_ranged('press 1 to continue, 2 to quit: ', 1, 2)
         if continue_choice == 1:
             #os.system('cls||clear')
             undesc = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
@@ -890,14 +1154,8 @@ Publication: {active_item.publication}
 Category: {active_item.category}
 Description: {active_item.description}
 Keywords: {active_item.keywords}''')
-            #print(active_item, end='\n')
-                edit_menu = ('''
-1. Edit description
-2. Edit category id''')
                 edit_choice = btc.read_int_ranged('Edit description - 1, Edit category id - 2, 3-next_article: ', 1, 3)
                 if edit_choice == 1:
-                    #new_desc = get_description()
-                    #desc_finalize(entry_id=active_item.id_value, session=session)
                     summary_choice = btc.read_int_ranged('Type 1 to view summary, 2 to skip', 1, 2)
                     if summary_choice == 1:
                         print(f'Summary:\n{active_item.summary}')
@@ -916,6 +1174,50 @@ Keywords: {active_item.keywords}''')
                     break
         elif continue_choice == 2:
             break
+
+def set_pubnames(args, session):
+    if args.id_range:
+        minimum_id = args.id_range[0]
+        maximum_id = args.id_range[1]
+        result = session.query(Publication).filter(Publication.id_value >= minimum_id, 
+                                  Publication.id_value <= maximum_id).all()
+        #result = result.filter(Publication.url == Publication.title).all()
+        results = it.cycle([i for i in result if i.url == i.name_value])
+        while True:
+            
+            new_pub = next(results)
+            edit_choice = btc.read_int_ranged(f'Type 1 to edit {new_pub.title}, 2 to continue, 3 to quit: ', 1, 3)
+            if edit_choice == 1:
+                new_title = btc.read_text('Enter new title or "." to cancel: ')
+                if new_title != ".":
+                    new_pub.title = new_title
+                    session.commit()
+                else:
+                    print('Edit cancelled')
+                    #break
+            elif edit_choice == 3:
+                print('Edit cancelled')
+                break
+                #break
+                
+def merge_pub(args, session):
+    #args contains: url
+    #get all publication urls:
+    query_one = session.query(Publication).all()
+    if args.id_range:
+        query_one = query_one.filter(Publication.id_value >= args.id_range[0],
+                                     Publication.id_value <= args.id_range[1])
+    duplicate_counter = Counter([i.url for i in query_one])
+    for i in duplicate_counter.items():
+        print(i)
+    
+ #   if args.url:
+     #   query = session.query(Publication.url.like(f'%{args.url}%')).all()
+    #    results = it.cycle(query)
+     #   pass
+    #else:
+      #  return
+
 
 #Edit entry section: these functions relate to editing entries
 
@@ -1050,7 +1352,27 @@ def edit_entry(session, entry_id):
             next(options)(session, entry_id)
         elif choice == 2:
             break
-            
+        
+def edit_entry2(session, entry_id):
+    entry = get(session=session, model=Entry, entry_id=entry_id)
+    choices = {1: name_from_input, 2: date_from_input,
+               3: desc_from_input, 4: cat_id_from_input}
+    #print(entry)
+    while True:
+        print(entry)
+        choice = btc.read_int_ranged(f'''Continue editing {entry.entry_name}?
+1 - edit name
+2 - edit date
+3 - edit category id
+4 - edit description
+5 - finish editing
+Enter selection: ''', 1, 5)
+        if choice <= 4:
+            choices.get(choice)(session, entry_id)
+        elif choice == 5:
+            print('Editing complete')
+            break
+    #pass
 #create section - functions for creating new instances
 
 #add_articles: this section is for adding entries, this is separate due to the complexity of the code. The entries
@@ -1062,11 +1384,12 @@ def edit_entry(session, entry_id):
 #    session.commit()
 #    print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
 
-def add_entry(session, url, category_id, date, description=None):
+def add_entry(session, url, category_id, date, description=None, category_name=None,
+              manual_description=False):
     'qa is short for quick_add'
     try:
-        assert len(category_id) <=4, 'category_id out of order'
-        assert parse(date), 'date out of order'
+        #assert category_id.isnumeric(), 'category_id out of order'
+        #assert parse(date), 'date out of order'
         assert len(url) > 10, 'url out of order'
     
     except AssertionError as e:
@@ -1084,9 +1407,17 @@ def add_entry(session, url, category_id, date, description=None):
                         title=new_article.source_url,
                         url=new_article.source_url)
         print(new_pub)
-    date = parse(date)
+    if type(date) == str:
+        date=parse(date)
     if description == None:
-        description='Not specified'
+        if manual_description == True:
+            pprint.pprint(new_article.title)
+            pprint.pprint(new_article.summary)
+            description_prompt = btc.read_text('Enter article description or "." to cancel: ')
+            if description_prompt == '.':
+                description='Not specified'
+        elif manual_description==False:
+            description='Not specified'
     authors = [get_or_create(session, Author, author_name=i) for i in new_article.authors]
     keywords = [get_or_create(session, Keyword, word=i) for i in new_article.keywords]
     new_entry= create_entry(article=new_article, description=description,
