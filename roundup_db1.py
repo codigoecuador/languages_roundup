@@ -1,3 +1,4 @@
+import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -29,6 +30,21 @@ keywordentries_table = Table('keywordentries', Base.metadata,
 )
 
 
+class Introduction(Base):
+    ''''''
+    __tablename__ = 'Introductions'
+    introduction_id = Column(Integer(), primary_key=True)
+    name = Column(String(100), index=True, nullable=False)
+    text = Column(String(2000), nullable=False)
+    
+    def __repr__(self):
+        return f'''Introduction(id='{self.introduction_id}', name='{self.name}')
+Text: {self.text}'''
+
+    @hybrid_property
+    def id_value(self):
+        return self.introduction_id
+
 class Publication(Base):
     
     @classmethod
@@ -43,13 +59,13 @@ class Publication(Base):
     __tablename__ = 'publications'
     publication_id = Column(Integer(), primary_key=True)
     title = Column(String(100), index=True, unique=True)
-    url = Column(String(100), default=None)
+    url = Column(String(100), default=None, unique=True)
     entries = relationship("Entry", back_populates="publication")
     name=synonym('title')
     second_item=synonym('url') #we use this synonym for functions that affect more than one type of object
     
     def __repr__(self):
-        return "Publication(publication_id='{self.publication_id}' title='{self.title}')".format(self=self)
+        return f'''Pub(id='{self.publication_id}' title='{self.title}', 'url={self.url})'''
     
     @hybrid_property
     def name_value(self):
@@ -185,8 +201,10 @@ class Entry(Base):
     author_names = association_proxy("authors", 'name')
     category_id = Column(Integer(), ForeignKey('categories.category_id'))
     category=relationship("Category", back_populates="entries")
+    category_name = association_proxy('category', 'name')
     publication_id = Column(Integer(), ForeignKey('publications.publication_id'))
     publication = relationship("Publication", back_populates="entries")
+    #publication_title = association_proxy('publications', 'title')
     keywords = relationship("Keyword", secondary=lambda: keywordentries_table)
     keyword_list = association_proxy('keywords', 'word')
     name=synonym('entry_name')
@@ -204,13 +222,13 @@ class Entry(Base):
         self.summary=summary
         
     def __repr__(self):
-        return "Entry(entry_name='{self.entry_name}', " \
-                       "entry_url='{self.entry_url}', " \
-                       "description='{self.description}', " \
-                       "date='{self.date}', "\
-                       "id='{self.entry_id}', "\
-                        "cat={self.category})".format(self=self) 
-                       #"author={self.author})".format(self=self)
+        return "Entry(entry_name='{self.entry_name}',\n " \
+                    "entry_url='{self.entry_url}',\n " \
+                    "description='{self.description}',\n " \
+                    "date='{self.date}', \n"\
+                    "entry_id='{self.entry_id}', \n"\
+                    "category={self.category}, \n"\
+                    "authors={self.authors})".format(self=self)
         
     @property
     def get_date_formatted(self):

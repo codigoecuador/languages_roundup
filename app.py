@@ -1,18 +1,18 @@
-import newspaper as np
-from roundup_db1 import Entry, Category, Keyword, Publication, Author, Section
-from roundup_db1 import DataAccessLayer
-from dateutil.parser import parse
 import itertools as it
-import BTCInput2 as btc
-from sqlalchemy import func
-from sqlalchemy.orm.exc import MultipleResultsFound
 import functools
 import pprint
 import warnings
 from collections import Counter
-
+import cmd2 #let's import it so we can pass the cmd interface as an object
+import newspaper as np
+from dateutil.parser import parse
+from sqlalchemy import func
+from sqlalchemy.orm.exc import MultipleResultsFound
 import docx
 from docx.enum.dml import MSO_THEME_COLOR_INDEX
+import BTCInput3 as btc
+from roundup_db1 import Entry, Category, Keyword, Publication, Author, Section, Introduction
+from roundup_db1 import DataAccessLayer
 
 class Roundup(object):
     '''NOTE: do not try to use the roundup class for anything except exporting roundups'''
@@ -54,9 +54,6 @@ class Roundup(object):
     @staticmethod
     def add_hyperlink(paragraph, text, url):
         # This gets access to the document.xml.rels file and gets a new relation id value
-        #print(paragraph)
-        #print(text)
-        #print(url)
         try:
             part = paragraph.part
             r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
@@ -104,9 +101,6 @@ class Roundup(object):
     @staticmethod       
     def add_section(document, section):
         document.add_paragraph(section.name)
-        #section_name = document.add_paragraph(section.name)
-        #new_categories = it.takewhile(lambda x: len(x.entries) >0, section.categories)
-       # section.categories = list(new_categories)
         section.categories.sort(key=lambda x: x.name, reverse=True)
         section.categories.reverse()
         for category in section.categories:
@@ -115,7 +109,7 @@ class Roundup(object):
     
     @staticmethod
     def add_category(document, category):
-        category_name = document.add_paragraph(category.name)
+        document.add_paragraph(category.name)
         category.entries.sort(key=lambda x: x.entry_name, reverse=True)
         category.entries.reverse()
         for article in category.entries:
@@ -209,7 +203,8 @@ def export_roundup(title, start_date, end_date, filename, intro=None, min_catego
     except Exception as e:
         print(e)
 
-def create_docx_roundup(args):
+def create_docx_roundup(args, session=None):
+    #we only need a session if we are looking up the introduction
     line=''
     if not args.title:
         title = btc.read_text('Enter title or "." to return to main menu: ')
@@ -217,7 +212,14 @@ def create_docx_roundup(args):
     else:
         title=' '.join(args.title)
     if not args.introduction:
-        args.introduction=None
+        if args.introduction_id:
+            intro = session.query(Introduction).filter(Introduction.introduction_id==args.introduction_id).first()
+            #print(args.introduction_id)
+            #print(intro)
+            args.introduction = intro.text
+            #print(args.introduction)
+        else:
+            args.introduction=None
     if not args.date_range:
         start_date = btc.read_date('Enter start date "(MM/DD/YYYY)": ')
         end_date = btc.read_date('Enter end_date "MM/DD/YYYY": ')
@@ -225,10 +227,10 @@ def create_docx_roundup(args):
         start_date = parse(args.date_range[0]).date()
         end_date = parse(args.date_range[1]).date()
     if not args.filename:
-        filename = btc.read_text('Enter filename or "." to return to main menu: ')
+        args.filename = btc.read_text('Enter filename or "." to return to main menu: ')
     #call the export_roundup function to export a docx roundup
-    export_roundup(title=title, start_date=parse(args.date_range[0]).date(),
-                   end_date=parse(args.date_range[1]).date(), filename=args.filename,
+    export_roundup(title=title, start_date=start_date,#parse(args.date_range[0]).date(),
+                   end_date=end_date, filename=args.filename,
                    intro=args.introduction)
         
 #create section
@@ -248,6 +250,25 @@ def add_category(session, category_name):
     elif confirm_choice == 2:
         print('Category add cancelled')
         return
+
+def new_cat_with_entry(session, cmdobj, category_name, section_id):
+    '''Creates a new category when we're in the process of making an entry'''
+    make_cat = lambda x, y: Category(name=x, section_id=y)
+    new_category = make_cat(x=category_name, y=section_id)
+    try:
+        session.add(new_category)
+        session.commit()
+        #new_cat_style = cmd2.style(text=new_category, bg=cmd2.bg.blue,
+        #                           fg=cmd2.fg.white, bold=True)
+        #cmdobj.poutput(new_cat_style)
+        return None
+        #return new_category
+    except Exception as e:
+        cmdobj.poutput(e)
+        warning_msg = cmd2.style(text=f'Category creation failed for {category_name}')
+        cmdobj.poutput(warning_msg)
+        return None
+    
 
 def add_item(session, search_type, new_name):
     """session is the current active session, search_type is the type of item, while
@@ -474,11 +495,17 @@ def display_categories(section_id=None):
     cat_map = map(str, query)
     print('\n'.join(cat_map))
 
-def display_sections():
+def display_sections(cmdobj=None):
     query = dal.session.query(Section).all()
     section_map = map(str, query)
-    print('Sections: ')
-    print('\n'.join(section_map))
+    if cmdobj==None:
+        print('Sections: ')
+        print('\n'.join(section_map))
+    else:
+        section_heading = cmd2.style('Sections:', fg=cmd2.fg.white, bg=cmd2.bg.black, bold=True)
+        cmdobj.poutput(section_heading)
+        section_str = cmd2.style('\n'.join(section_map), fg=cmd2.fg.white, bg=cmd2.bg.black)
+        cmdobj.poutput(section_str)
 
 def get_description():
     description = input('Enter article description (max 500 characters): ')
@@ -489,9 +516,13 @@ def get_sections():
     query = dal.session.query(Section).all()
     return query
 
-def get_categories():
+def get_categories(session, section_id=None):
     '''Return a list of all the categories in the program'''
-    query = dal.session.query(Category).all()
+    query = session.query(Category)
+    if section_id == None:
+        query = session.query(Category).all()
+    else:
+        query = query.filter(Category.section_id == section_id).all()
     return query
 
 def count_articles(line, session):
@@ -543,6 +574,32 @@ def date_range_count(start_date, end_date, session):
     print(total, f'articles total from {start_date} to {end_date}')
     print(f'Undescribed articles: {undesc_num}')
     
+def date_range_count2(start_date, end_date, session, cmdobj):
+    '''Combine date_range_count and article_count'''
+    #print(line)
+    try:
+        #line = line.split(' ')
+        start_date, end_date = parse(start_date), parse(end_date)
+        start_date = start_date.date()
+        end_date = end_date.date()
+        intro=cmd2.style('Entry Count', fg=cmd2.fg.black, bg=cmd2.bg.white, bold=True)
+        sdate = cmd2.style(text=f'Start date: {start_date}',fg=cmd2.fg.green, bg=cmd2.bg.white, bold=True)
+        edate = cmd2.style(text=f'End date: {end_date}', fg=cmd2.fg.red, bg=cmd2.bg.white, bold=True)
+        cmdobj.poutput(intro)
+        cmdobj.poutput(sdate)
+        cmdobj.poutput(edate)
+        #print('start date:', start_date)
+        #print('end date:', end_date)
+    except IndexError as e:
+            print(e)
+            return
+    ent_query = session.query(Entry)
+    ent_query = ent_query.filter(Entry.date >= start_date)
+    ent_query = ent_query.filter(Entry.date <= end_date)
+    result = ent_query.all()
+    mycount = Counter([i.category_name for i in result])    
+    pprint.pprint(mycount)
+    
 def articles_needed(start_date, end_date, session):
     min_articles_cat = 5
     '''Combine date_range_count and article_count'''
@@ -576,7 +633,23 @@ def articles_needed(start_date, end_date, session):
         #print('{0}: {1} articles, {2} more articles needed'.format(k, v[0], v[1]))
     #print(total, 'articles total from {0} to {1}'.format(start_date, end_date))
     
-def find_entry(args, session):
+def find_introduction(args, session, cmdobj):
+    '''Takes arguments from the ui.py module
+    args includes args.introduction_id, args.name, and args.text
+    only args.introduction_id will be implemented at this present stage'''
+    if not args.introduction_id:
+        no_intro_id = cmd2.style('No introduction ID found', bg=cmd2.bg.red,
+                                 fg=cmd2.fg.white, bold=True)
+        raise Exception(no_intro_id)
+    else:
+        get_intro = lambda x: session.query(Introduction).filter(Introduction.introduction_id==x).one()
+        intro_result = get_intro(args.introduction_id)
+        result_style = lambda x: cmd2.style(text=x, bg=cmd2.bg.white,
+                                            fg=cmd2.fg.black, bold=False)
+        cmdobj.poutput(result_style(intro_result))
+        
+    
+def find_entry(args, session, cmdobj):
     if args.entry_id and args.id_range:
         raise Exception('Must be either id or id range')
     elif args.date and args.date_range:
@@ -607,6 +680,7 @@ def find_entry(args, session):
         if args.url:
             query = query.filter(Entry.url.like(f'%{args.url}%'))
         if args.title:
+            print('args.title', args.title)
             query = query.filter(Entry.entry_name.like(f'%{args.title}%'))
         if args.publication_id:
             query = query.filter(Entry.publication_id==args.publication_id)
@@ -626,20 +700,22 @@ def find_entry(args, session):
         if info_choice == 1:
             while True:
                 next_item = next(result_cycle)
-                continue_choice = btc.read_int_ranged(f'1 to view {next_item.name}, 2 to quit: ', 1, 2)
+                continue_choice = btc.read_int_ranged(f'1 to view {next_item.name}, 2 to continue, 3 to quit: ', 1, 3)
                 #print(next(result_cycle).name)
                 if continue_choice == 1:
                     #print(next(result_cycle))
                     print(next_item)
-                    edit_choice = btc.read_int_ranged(f'1-edit {next_item.name}, 2-(continue) 3-quit:', 1, 3)
+                    edit_choice = btc.read_int_ranged(f'1-edit {next_item.name}, 2-(continue) 3-quit: ', 1, 3)
                     if edit_choice == 1:
-                        edit_entry(session=session, entry_id=next_item.entry_id)
+                        edit_entry2(session=session, entry_id=next_item.entry_id, cmdobj=cmdobj)
                     elif edit_choice == 2:
                         continue
                     elif edit_choice == 3:
                         print('Edit cancelled, return to main menu')
                         return
                 elif continue_choice == 2:
+                    continue
+                elif continue_choice == 3:
                     print('returning to main menu')
                     break
 
@@ -669,14 +745,14 @@ def find_section(args, session):
                 
 def find_keyword(args, session):
     query = session.query(Keyword)
-    if args.section_id:
-        query = query.filter(Keyword.keyword_id==args.section_id)
-    if args.name:
-        query = query.filter(Keyword.word.like(f'%{args.name}%'))
+    if args.keyword_id:
+        query = query.filter(Keyword.keyword_id==args.keyword_id)
+    if args.word:
+        query = query.filter(Keyword.word.like(f'%{args.word}%'))
     result = query.all()
     result_total = len(result)
     if result_total == 0:
-        print('no sections found')
+        print('no keywords found')
         return
     result_cycle = it.cycle(result)
     print(f'{result_total} keywords found')
@@ -696,6 +772,13 @@ def get_category(category_name, session):
     category_name = ' '.join(category_name)
     query = session.query(Category).filter(Category.name.like(f'%{category_name}%')).first()
     print(query)
+    return query
+
+def get_category_name(category_name, session):
+    '''Gets the category for the create article function'''
+    #category_name = ' '.join(category_name)
+    query = session.query(Category).filter(Category.name.like(f'%{category_name}%')).first()
+    #print(query)
     return query
 
 def find_category(args, session):
@@ -783,20 +866,20 @@ Link: {active_item.url}''')
             break
        
                     
-def search_exact_name(line, session):
-    search_types = {'entry': Entry, 'category': Category, 'publication': Publication,
-                   'section': Section, 'keyword':Keyword}
-    #app.search_exact_name(line=line)
-    line = line.split(' ')
-    search_type = line[0].lower() #make it lowercase to fit in the dictionary
-    value= ' '.join(line[1:]) #The first word is the search type, so we want the remainder of the words
-        #to be the title
-    if search_type in search_types:
-        #print(True)
-        result = get(session=session, model=search_types[search_type], name_value=value)
-        print(result)
-    else:
-        print('Invalid search type, return to main menu')
+# def search_exact_name(line, session):
+#     search_types = {'entry': Entry, 'category': Category, 'publication': Publication,
+#                    'section': Section, 'keyword':Keyword}
+#     #app.search_exact_name(line=line)
+#     line = line.split(' ')
+#     search_type = line[0].lower() #make it lowercase to fit in the dictionary
+#     value= ' '.join(line[1:]) #The first word is the search type, so we want the remainder of the words
+#         #to be the title
+#     if search_type in search_types:
+#         #print(True)
+#         result = get(session=session, model=search_types[search_type], name_value=value)
+#         print(result)
+#     else:
+#         print('Invalid search type, return to main menu')
 
 #def search_by_id(search_type, item_id, session):
 #        '''This will serve as a universal function to get an 1 by its id'''
@@ -1119,7 +1202,7 @@ Section ID: {active_item.section_id}''')
 
 #finalize section: functions to finalize articles
             
-def finalize(session, start_date, end_date):
+def finalize(session, cmdobj, start_date, end_date):
     start_date = parse(start_date)
     end_date = parse(end_date)
     query = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
@@ -1127,7 +1210,10 @@ def finalize(session, start_date, end_date):
     #print(query)
     result = it.cycle(query)
     undescribed_articles = len(query)
-    print(f'{undescribed_articles} undescribed articles')
+    article_count = cmd2.style(text=f'{undescribed_articles} undescribed articles',
+                               bg=cmd2.bg.white, fg=cmd2.fg.black)
+    cmdobj.poutput(article_count)
+    #print(f'{undescribed_articles} undescribed articles')
     while True:
         try:
             active_item=next(result)
@@ -1144,25 +1230,54 @@ def finalize(session, start_date, end_date):
             print(f'{undescribed} undescribed articles remaining')
             #active_item = next(result)
             while True:
-                print(f'''\n
+                entry_layout_start=cmd2.style(text=f'''\n
 Entry ID: {active_item.id_value}
 Title: {active_item.name_value}
-Date: {active_item.date}
-Link: {active_item.entry_url}
+Date: {active_item.date}''', bg=cmd2.bg.white, fg=cmd2.fg.black, bold=True)
+
+                entry_layout_end=cmd2.style(text=f'''Link: {active_item.entry_url}
 Authors: {active_item.authors}
 Publication: {active_item.publication}
 Category: {active_item.category}
 Description: {active_item.description}
-Keywords: {active_item.keywords}''')
-                edit_choice = btc.read_int_ranged('Edit description - 1, Edit category id - 2, 3-next_article: ', 1, 3)
+Keywords: {active_item.keywords}''', bg=cmd2.bg.white, fg=cmd2.fg.black)
+                cmdobj.poutput(entry_layout_start)
+                cmdobj.poutput(entry_layout_end)
+#                 print(f'''\n
+# Entry ID: {active_item.id_value}
+# Title: {active_item.name_value}
+# Date: {active_item.date}
+# Link: {active_item.entry_url}
+# Authors: {active_item.authors}
+# Publication: {active_item.publication}
+# Category: {active_item.category}
+# Description: {active_item.description}
+# Keywords: {active_item.keywords}''')
+                edit_choice = btc.read_int_ranged('Edit description - 1, Edit category id - 2, next_article - 3, quit - 4: ', 1, 4)
                 if edit_choice == 1:
-                    summary_choice = btc.read_int_ranged('Type 1 to view summary, 2 to skip', 1, 2)
+                    summary_choice = btc.read_int_ranged('Type 1 to view summary, 2 to skip: ', 1, 2)
                     if summary_choice == 1:
-                        print(f'Summary:\n{active_item.summary}')
+                        summary_heading = cmd2.style(text='Summary:',
+                                                     bg=cmd2.bg.white,
+                                                     fg=cmd2.fg.black,
+                                                     bold=True)
+                                                     
+                        summary_text=cmd2.style(text=f'{active_item.summary}',
+                                                     bg=cmd2.bg.white,
+                                                     fg=cmd2.fg.black)
+                                                     
+                        cmdobj.poutput(summary_heading)
+                        cmdobj.poutput(summary_text)
+                        #print(f'Summary:\n{active_item.summary}')
                     else:
-                        print('Summary display not needed')
-                    new_desc = btc.read_text('Enter new description or "." to cancel: ')
-                    print(new_desc)
+                        cancelled = cmd2.style(text='Summary display not needed',
+                                                     bg=cmd2.bg.white, fg=cmd2.fg.black)
+                        cmdobj.poutput(cancelled)
+                        #print('Summary display not needed')
+                    new_desc = btc.read_text_adv(prompt='Enter new description or "." to cancel: ',
+                                                 cmdobj=self, background='blue', foreground='white')
+                    cmdobj.poutput(new_desc)
+                    #print(new_desc)
                     if new_desc != '.': 
                         active_item.description = new_desc
                         session.commit()
@@ -1172,8 +1287,111 @@ Keywords: {active_item.keywords}''')
                     cat_id_finalize(entry_id=active_item.id_value, session=session)
                 elif edit_choice == 3:
                     break
+                elif edit_choice == 4:
+                    raise Exception('Return to main menu')
         elif continue_choice == 2:
             break
+
+#new type of function
+#like BTCInput but takes a cmd2obj style as an input
+#prints out that style
+#then does btc.read_text or read_int or read_int_ranged
+#prompt is the prompt for the application
+
+def finalize_two(session, cmdobj, start_date, end_date):
+    start_date = parse(start_date)
+    end_date = parse(end_date)
+    query = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+    query = query.filter(Entry.description.like('%not specified%')).all()
+    #print(query)
+    result = it.cycle(query)
+    undescribed_articles = len(query)
+    article_count = cmd2.style(text=f'{undescribed_articles} undescribed articles',
+                               bg=cmd2.bg.white, fg=cmd2.fg.black)
+    cmdobj.poutput(article_count)
+    #print(f'{undescribed_articles} undescribed articles')
+    while True:
+        try:
+            active_item=next(result)
+        except StopIteration:
+            print('No undescribed entries, return to main menu')
+            return
+        #get the number of undescribed entries
+        #print the number of undescribed entries with proper style
+        #print article layout
+        #take user choice
+        undesc = session.query(Entry).filter(Entry.date >= start_date, Entry.date <= end_date)
+        undesc = undesc.filter(Entry.description.like('%not specified%')).all()
+        undescribed = len(undesc)
+        print(f'{undescribed} undescribed articles remaining')
+        #active_item = next(result)
+        while True:
+            entry_layout_start=cmd2.style(text=f'''\n
+Entry ID: {active_item.id_value}
+Title: {active_item.name_value}
+Date: {active_item.date}''', bg=cmd2.bg.white, fg=cmd2.fg.black, bold=True)
+
+            entry_layout_end=cmd2.style(text=f'''Link: {active_item.entry_url}
+Authors: {active_item.authors}
+Publication: {active_item.publication}
+Category: {active_item.category}
+Description: {active_item.description}
+Keywords: {active_item.keywords}''', bg=cmd2.bg.white, fg=cmd2.fg.black)
+            cmdobj.poutput(entry_layout_start)
+            cmdobj.poutput(entry_layout_end)
+            edit_choice = btc.read_int_ranged_adv(prompt='Edit description - 1, Edit category id - 2, next_article - 3, quit - 4: ',
+                                                  min_value=1, max_value=4,
+                                                  cmdobj=cmdobj,
+                                                  fg=cmd2.fg.white,
+                                                  bg=cmd2.bg.blue,
+                                                  bold=True)
+            if edit_choice == 1:
+                summary_heading = cmd2.style(text='Summary:',
+                                             bg=cmd2.bg.white,
+                                             fg=cmd2.fg.black,
+                                             bold=True)
+                                             
+                summary_text=cmd2.style(text=f'{active_item.summary}',
+                                             bg=cmd2.bg.white,
+                                             fg=cmd2.fg.black)
+                                             
+                cmdobj.poutput(summary_heading)
+                cmdobj.poutput(summary_text)
+                new_desc = btc.read_text_adv(prompt='Enter new description or "." to cancel, "`" to erase: ',
+                                             cmdobj=cmdobj, bold=False)# bg=cmd2.bg.blue, fg=cmd2.fg.white)
+                #cmdobj.poutput(new_desc)
+                #print(new_desc)
+                if new_desc == '.':
+                    cancel_message =  cmd2.style(text='edit cancelled',
+                                                    bg=cmd2.bg.blue, fg=cmd2.fg.white, bold=True)
+                    cmdobj.poutput(cancel_message)
+                    #break
+                elif new_desc == '`':
+                    erase_message =  cmd2.style(text='edit cancelled',
+                                                    bg=cmd2.bg.blue, fg=cmd2.fg.white, bold=True)
+                    cmdobj.poutput(erase_message)
+                    #new_desc = 'Not specified'
+                    active_item.description = 'Not specified'
+                    session.commit()
+                else:
+                    #warnings.warn('Cut and paste the description again or it will be erased')
+                    active_item.description = new_desc
+                    session.commit()
+                #else:
+                #    new_desc = 'Not specified' #if the user doens't edit it
+            elif edit_choice == 2:
+                cat_id_finalize(entry_id=active_item.id_value, session=session)
+            elif edit_choice == 3:
+                break
+            elif edit_choice == 4:
+                #raise Exception('Return to main menu')
+                return_message = cmd2.style(text='Return to main menu',
+                                                bg=cmd2.bg.red,
+                                                fg=cmd2.fg.yellow, bold=True)
+                #cmdobj.poutput(return_message)
+                raise Exception(return_message)
+                    
+
 
 def set_pubnames(args, session):
     if args.id_range:
@@ -1341,36 +1559,30 @@ def cat_id_from_input(session, entry_id):
             edit_category_id(session=session, entry_id=entry_id,
                              new_category_id=new_category_id)
             
-    
-def edit_entry(session, entry_id):
-    entry = get(session=session, model=Entry, entry_id=entry_id)
-    options = it.cycle([name_from_input, date_from_input,
-                        desc_from_input, cat_id_from_input])
-    while True:
-        choice = btc.read_int_ranged(f'Continue editing {entry.entry_name}, 1-yes 2-quit', 1, 2)
-        if choice == 1:
-            next(options)(session, entry_id)
-        elif choice == 2:
-            break
         
-def edit_entry2(session, entry_id):
+def edit_entry(session, entry_id, cmdobj):
     entry = get(session=session, model=Entry, entry_id=entry_id)
     choices = {1: name_from_input, 2: date_from_input,
-               3: desc_from_input, 4: cat_id_from_input}
+               3: cat_id_from_input, 4: desc_from_input}
     #print(entry)
     while True:
-        print(entry)
-        choice = btc.read_int_ranged(f'''Continue editing {entry.entry_name}?
+        e_style = cmd2.style(entry, fg=cmd2.fg.white, bg=cmd2.bg.blue, bold=False)
+        cmdobj.poutput(e_style)
+        #print(entry)
+        choice = btc.read_int_ranged_adv(f'''Continue editing {entry.entry_name}?
 1 - edit name
 2 - edit date
 3 - edit category id
 4 - edit description
 5 - finish editing
-Enter selection: ''', 1, 5)
+Enter selection: ''', cmdobj=cmdobj, min_value=1, max_value=5, bold=True)
         if choice <= 4:
             choices.get(choice)(session, entry_id)
         elif choice == 5:
-            print('Editing complete')
+            editing_complete = cmd2.style('Editing complete', bg=cmd2.bg.red,
+                                          fg=cmd2.fg.white, bold=True)
+            cmdobj.poutput(editing_complete)
+            #print('Editing complete')
             break
     #pass
 #create section - functions for creating new instances
@@ -1384,8 +1596,17 @@ Enter selection: ''', 1, 5)
 #    session.commit()
 #    print(f'{new_entry.entry_name} added to database')#.format(new_entry.entry_name))
 
-def add_entry(session, url, category_id, date, description=None, category_name=None,
-              manual_description=False):
+def add_intro(session, cmdobj, name, text):
+    '''Add introduction to database from a user command'''
+    new_intro = Introduction(name=name, text=text)
+    session.add(new_intro)
+    session.commit()
+    add_complete_intro = cmd2.style(text=f'{new_intro}')
+    cmdobj.poutput(add_complete_intro)
+    
+
+def add_entry(session, cmdobj, url, category_id, date, description=None, category_name=None,
+              manual_description=False, new_keywords=None):
     'qa is short for quick_add'
     try:
         #assert category_id.isnumeric(), 'category_id out of order'
@@ -1397,16 +1618,26 @@ def add_entry(session, url, category_id, date, description=None, category_name=N
         print(e)
         return
     new_article = make_article(url)
-    print('\nTitle is being added...')#, new_article.title)
-    pprint.pprint(new_article.title)
+    add_notice = cmd2.style('\n Title is being added...', fg=cmd2.fg.white,
+                            bg=cmd2.bg.blue)
+    cmdobj.poutput(add_notice)
+    #print('\nTitle is being added...')#, new_article.title)
+    article_title = cmd2.style(text=new_article.title, fg=cmd2.fg.white,
+                               bg=cmd2.bg.blue, bold=True)
+    cmdobj.poutput(article_title)
+    #pprint.pprint(new_article.title)
     new_pub = get(session, Publication,
                                url=new_article.source_url)
-    print(new_pub)
+    new_pub_notice = cmd2.style(text=new_pub, fg=cmd2.fg.yellow,
+                                bg=cmd2.bg.green, bold=True)
+    cmdobj.poutput(new_pub_notice)
+    #print(new_pub)
     if new_pub == None:
         new_pub = get_or_create(session, Publication,
                         title=new_article.source_url,
                         url=new_article.source_url)
-        print(new_pub)
+        cmdobj.poutput(new_pub_notice)
+        #print(new_pub)
     if type(date) == str:
         date=parse(date)
     if description == None:
@@ -1418,14 +1649,31 @@ def add_entry(session, url, category_id, date, description=None, category_name=N
                 description='Not specified'
         elif manual_description==False:
             description='Not specified'
+    if new_keywords:
+        for i in new_keywords:
+            #if type(i) == list:
+                #raise Exception('manually added keywords must be a single word')
+                #i = ' '.join(i)
+            choice = btc.read_int_ranged(f'add {i} to keywords?', 1, 2)
+            if choice == 1:
+                new_article.keywords.append(i)
+                print(f'{i} added to keywords manually')
     authors = [get_or_create(session, Author, author_name=i) for i in new_article.authors]
     keywords = [get_or_create(session, Keyword, word=i) for i in new_article.keywords]
+    
     new_entry= create_entry(article=new_article, description=description,
                             publication_id=new_pub.publication_id, category_id=category_id,
                             date=date, authors=authors, keywords=keywords)
     session.add(new_entry)
     session.commit()
-    print(f'{new_entry.name} added successfully')#.format(new_entry.name))
+    #print(f'{new_entry}')
+    new_entry_format = cmd2.style(text=str(new_entry), bg=cmd2.bg.blue,
+                                  fg=cmd2.fg.white, bold=False)
+    cmdobj.poutput(new_entry_format)
+    success = cmd2.style(text='added successfully', bg=cmd2.bg.blue,
+                         fg=cmd2.fg.white, bold=True)
+    cmdobj.poutput(success)
+    #print(f'{new_entry.name}, entry id {new_entry.id_value} added successfully')
     
 #def from_newspaper(url):
 #    #include confirm option to make sure that the user wants to add the article
@@ -1553,59 +1801,74 @@ def create_entry(article, description, publication_id, category_id, date, author
 
 #delete section - delete article
 
-def delete_item(session, model, id_value):
+def delete_item(session, cmdobj, model, id_value):
     model = model.lower()
     models = {'entry': Entry, 'category': Category, 'keyword': Keyword,
              'author': Author, 'publication': Publication, 'section': Section}
     result = get(session=session, model = models.get(model, 'invalid delete type'),
                 id_value=id_value)
     if result != None:
-        print(result)
-        delete_choice = btc.read_int_ranged(f'Delete {model} (1 for yes, 2 for no)?',
-                                            1, 2)
+        result_style = cmd2.style(text=result, fg=cmd2.fg.white, bg=cmd2.bg.blue,
+                                  bold=False)
+        cmdobj.poutput(result_style)
+        delete_choice = btc.read_int_ranged_adv(f'Delete {model} (1 for yes, 2 for no)?',
+                                                min_value=1, max_value=2,
+                                                fg=cmd2.fg.white,
+                                                bg=cmd2.bg.red,
+                                                bold=True,
+                                                cmdobj=cmdobj)         
         if delete_choice == 1:
             if (model == 'category') or (model=='section') or (model=='publication'):
                 try:
                     assert len(result.items) == 0
                 except AssertionError:
-                    print('result has items, delete these first: ', result.items)
+                    has_items_message = cmd2.style('Result has items, delete these first ',
+                                                   fg=cmd2.fg.yellow, bg=cmd2.bg.red,
+                                                   bold=True,cmdobj=cmdobj)
+                    cmdobj.poutput(has_items_message)
+                    cmdobj.poutput(result.items)
+                    #print('result has items, delete these first: ', result.items)
                     return
-            confirm_choice = btc.read_int_ranged('Are you sure (1 for yes, 2 for no)?', 1, 2)
+            confirm_choice = btc.read_int_ranged_adv('Are you sure (1 for yes, 2 for no)?',
+                                                     min_value=1, max_value=2,
+                                                     fg=cmd2.fg.yellow,
+                                                     bg=cmd2.bg.red,
+                                                     bold=True,cmdobj=cmdobj)
             if confirm_choice == 1:
                 #delete the article
                 session.delete(result)
                 session.commit()
-                print(f'{model} deleted')#.format(model))
+                delete_message = cmd2.style(f'{result_style} deleted',
+                                            fg=cmd2.fg.yellow,
+                                            bg=cmd2.bg.red,
+                                            bold=True)
+                cmdobj.poutput(delete_message)
+                #print(f'{model} deleted')#.format(model))
             elif confirm_choice == 2:
-                print('Delete cancelled')
-                print(f'{result.name_value} remains in database')#.format(result.name_value))
+                cancel_message= cmd2.style('Delete cancelled',
+                                           fg=cmd2.fg.yellow,
+                                           bg=cmd2.bg.red,
+                                           bold=True)
+                remains_message = cmd2.style('f{result.name_value} remains in database',
+                                             fg=cmd2.fg.yellow,
+                                             bg=cmd2.bg.red,
+                                             bold=False)
+                cmdobj.poutput(cancel_message)
+                cmdobj.poutput(remains_message)
+                #print('Delete cancelled')
+                #print(f'{result.name_value} remains in database')#.format(result.name_value))
         else:
-            print('Delete cancelled by user, returning to main menu')
+            delete_cancelled = cmd2.style('Delete cancelled by user, returning to main menu',
+                                          bg=cmd2.bg.red, fg=cmd2.fg.yellow,
+                                          bold=True)
+            cmdobj.poutput(delete_cancelled)
+            #print('Delete cancelled by user, returning to main menu')
     else:
-        print('Item not found, delete cancelled')
-    
-#def export_html(session, program, start_date, end_date, title):
-#    filename = program + '.html'
-#    f = open(filename, 'w')
-#
-#    opening_wrapper = f"""<html>
-#    <head>
-#    <title>{title}</title>
-#    </head>
-#    <body><p>{title}</p>"""
-#    f.write(opening_wrapper)
-#    section_query = session.query(Section)
-#    section_query = section_query.all()
-#    for section in section_query:
-#        f.write(section.wrapped_html_string)
-#        for category in section.categories:
-#            f.write(category.wrapped_html_string)
-#            for entry in category.entries:
-#                if (entry.date >= start_date) and (entry.date <= end_date):
-#                    f.write(entry.wrapped_html_string)
-#    closing_wrapper = """</body>
-#    </html>"""
-#    f.write(closing_wrapper)
+        not_found = cmd2.style('Item not found, delete cancelled',
+                               bg=cmd2.bg.red, fg=cmd2.fg.white,
+                               bold=False)
+        cmdobj.poutput(not_found)
+        #print('Item not found, delete cancelled')
 
 def make_html_roundup(line, session):
     del line
